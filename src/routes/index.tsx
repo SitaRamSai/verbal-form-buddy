@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   Accessibility,
   BookOpen,
@@ -218,9 +218,19 @@ function Index() {
     <div className="min-h-screen bg-background px-4 py-8 lg:px-8">
       <main className="mx-auto w-full max-w-6xl">
         <header className="mb-8 flex flex-col gap-1">
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            FormBuddy
-          </h1>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              FormBuddy
+            </h1>
+            <nav aria-label="Main">
+              <Link
+                to="/architecture"
+                className="rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+              >
+                Architecture
+              </Link>
+            </nav>
+          </div>
           <p className="text-sm text-muted-foreground">
             Texas Driver License / ID Card application — speak and FormBuddy fills in the form.
           </p>
