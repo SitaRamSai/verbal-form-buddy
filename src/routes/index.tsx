@@ -102,6 +102,8 @@ function Index() {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [viewMode, setViewMode] = useState<"form" | "pdf">("pdf");
   const [aiThinking, setAiThinking] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const [typedAnswer, setTypedAnswer] = useState("");
 
 
   // Refresh PDF when values or flatten toggle changes
@@ -193,7 +195,7 @@ function Index() {
   const handleMicToggle = useCallback(() => {
     if (!startedRef.current) {
       startedRef.current = true;
-      void say(agentRef.current.getInitialGreeting());
+      void say(agentRef.current.getInitialGreeting()).then(() => toggle());
       return;
     }
     toggle();
@@ -242,7 +244,7 @@ function Index() {
     setCurrentStage("GREETING_AND_TYPE");
     setAgentReasoning("Agent reset to initial DL-14A intake state.");
     void updatePdf(EMPTY_DMV_FORM, flattenPdf);
-    speak(greeting);
+    void say(greeting);
   };
 
   const progress = agentRef.current.getProgress();
