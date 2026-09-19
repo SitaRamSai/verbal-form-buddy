@@ -300,7 +300,7 @@ const RULES: FieldRule[] = [
   },
   {
     patterns: [
-      /(?:height\s+is\s+|i\s+am\s+|i'?m\s+)?(\d{1})\s*(?:foot|feet|ft)\s*(\d{1,2})?\s*(?:inch|inches|in)?/i,
+      /((?:\d{1})\s*(?:foot|feet|ft)\s*(?:\d{1,2})?\s*(?:inch|inches|in)?)/i,
     ],
     apply: (v) => {
       const nums = v.match(/\d+/g) ?? [];
@@ -348,7 +348,7 @@ const RULES: FieldRule[] = [
     patterns: [
       /(?:my\s+address\s+is|i\s+live\s+at|residence\s+address\s+is|address\s+is|living\s+at)\s+([^.,!?;]+)/i,
     ],
-    apply: (v) => ({ residenceAddress: text(v) }),
+    apply: (v) => ({ residenceAddress: titleCase(v) }),
   },
   {
     patterns: [/(?:my\s+city\s+is|city\s+is|i\s+live\s+in)\s+([^.,!?;]+)/i],
