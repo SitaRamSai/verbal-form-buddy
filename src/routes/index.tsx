@@ -47,8 +47,34 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
+const GREETING =
+  "Hi, and welcome to FormBuddy. I'm your voice helper — I'll read the questions out loud and fill the form in as you answer.";
+
+const FORM_QUESTION = "Which form would you like to work on today?";
+
+const AVAILABLE_FORMS = [
+  {
+    id: "dl-14a",
+    name: "Texas Driver License / ID Card Application",
+    code: "Form DL-14A",
+    available: true,
+  },
+  {
+    id: "utility",
+    name: "Utility Assistance Application",
+    code: "Coming soon",
+    available: false,
+  },
+  {
+    id: "snap",
+    name: "Food Benefits (SNAP) Application",
+    code: "Coming soon",
+    available: false,
+  },
+];
+
 const WELCOME_SCRIPT =
-  "Welcome to FormBuddy. We'll complete the Utility Assistance application together. There are six steps. You can say 'repeat,' 'why do they need this,' 'save for later,' or 'what documents do I need?'";
+  "Welcome to FormBuddy. We'll complete the Texas Driver License / ID Card application together. You can say 'repeat,' 'why do they need this,' 'save for later,' or 'what documents do I need?'";
 
 const VOICE_COMMANDS = [
   "repeat",
@@ -56,6 +82,32 @@ const VOICE_COMMANDS = [
   "save for later",
   "what documents do I need?",
 ];
+
+const FIELD_QUESTIONS: Record<keyof FormValues, string> = {
+  lastName: "What is your last name?",
+  firstName: "What is your first name?",
+  middleName: "What is your middle name? Say 'skip' if you don't have one.",
+  dateOfBirth: "What is your date of birth?",
+  ssn: "What is your Social Security number?",
+  heightFeet: "How tall are you, in feet and inches?",
+  heightInches: "And how many inches?",
+  weight: "About how much do you weigh, in pounds?",
+  placeOfBirthCity: "Which city were you born in?",
+  placeOfBirthState: "And which state were you born in?",
+  fathersLastName: "What is your father's last name?",
+  mothersMaidenName: "What is your mother's maiden name?",
+  residenceAddress: "What is the street address where you live?",
+  city: "Which city do you live in?",
+  state: "Which state do you live in?",
+  zipCode: "What is your ZIP code?",
+  county: "Which county do you live in?",
+  phone: "What is your primary phone number?",
+  cellPhone: "What is your cell phone number?",
+  email: "What is your email address?",
+  emergencyName: "Who should we contact in an emergency?",
+  emergencyPhone: "What is that person's phone number?",
+  emergencyAddress: "What is that person's address?",
+};
 
 const DOCUMENTS = [
   "Proof of identity (birth certificate or passport)",
