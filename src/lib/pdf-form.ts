@@ -1,7 +1,34 @@
 import { PDFDocument } from "pdf-lib";
 import type { FormValues } from "@/lib/form-parser";
 
-export const PDF_TEMPLATE_URL = "/forms/utility-assistance.pdf";
+export const PDF_TEMPLATE_URL = "/forms/dl-14a.pdf";
+
+/** Maps our collected values to the real field names inside Form DL-14A. */
+const FIELD_MAP: Record<keyof FormValues, string> = {
+  lastName: "Last Name",
+  firstName: "First Name",
+  middleName: "Middle Name",
+  dateOfBirth: "Date of Birth mmddyyyy",
+  ssn: "SSN",
+  heightFeet: "Height",
+  heightInches: "Ft",
+  weight: "Weight",
+  placeOfBirthCity: "Place of birth City",
+  placeOfBirthState: "State",
+  fathersLastName: "Fathers Last Name",
+  mothersMaidenName: "Mothers Maiden Name",
+  residenceAddress: "Residence Address",
+  city: "City",
+  state: "State_2",
+  zipCode: "Zip Code",
+  county: "County_2",
+  phone: "Primary Phone",
+  cellPhone: "Cellular Phone",
+  email: "Email",
+  emergencyName: "a Name",
+  emergencyPhone: "Phone Number",
+  emergencyAddress: "Address",
+};
 
 let templateBytes: ArrayBuffer | null = null;
 
@@ -24,13 +51,21 @@ export async function fillPdf(
   const doc = await PDFDocument.load(await loadTemplate());
   const form = doc.getForm();
   for (const [name, value] of Object.entries(values)) {
+    const pdfName = FIELD_MAP[name as keyof FormValues];
+    if (!pdfName) continue;
     try {
-      form.getTextField(name).setText(value ?? "");
+      form.getTextField(pdfName).setText(value ?? "");
     } catch {
       // field not present in this template — skip
     }
   }
-  if (options.flatten) form.flatten();
+  if (options.flatten) {
+    try {
+      form.flatten();
+    } catch {
+      // some widgets can't be flattened — keep the filled fields instead
+    }
+  }
   return doc.save();
 }
 
