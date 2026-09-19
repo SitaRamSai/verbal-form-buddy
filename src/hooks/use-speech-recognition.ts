@@ -232,10 +232,17 @@ export function speak(text: string): Promise<void> {
         if (token !== speakToken) return;
         parser.feed(value);
       }
+
+      // Wait until the queued audio has actually finished playing.
+      const remaining = playhead - ctx.currentTime;
+      if (remaining > 0) {
+        await new Promise((resolve) => setTimeout(resolve, remaining * 1000 + 150));
+      }
     } catch (error) {
       if ((error as Error)?.name === "AbortError" || token !== speakToken) return;
       // AI voice unavailable — fall back to the browser's built-in voice.
       speakWithBrowserVoice(text);
+      await new Promise((resolve) => setTimeout(resolve, Math.min(text.length * 60, 12000)));
     }
   })();
 }
