@@ -132,7 +132,7 @@ export function formatSpokenDate(raw: string): string | null {
     else if (n >= 1 && n <= 31 && day === null) day = n;
   }
   if (day === null) return null;
-  const pretty = `${monthMatch[0].toUpperCase()}${monthMatch.slice(1)} ${day}`;
+  const pretty = `${monthMatch.charAt(0).toUpperCase()}${monthMatch.slice(1)} ${day}`;
   return year !== null ? `${pretty}, ${year}` : pretty;
 }
 
@@ -140,7 +140,7 @@ export function formatSpokenDate(raw: string): string | null {
 
 function cleanName(value: string): string {
   // Stop before the speaker starts describing another field.
-  const trimmed = value.split(/\s+(?:and|also|then)\s+(?:my|the|our|it|i)\b/i)[0];
+  const trimmed = value.split(/\s+(?:and|also|then)\s+(?:my|the|our|it|i)\b/i)[0] ?? "";
   const connectives = new Set(["and", "of", "the", "de", "jr", "sr"]);
   return trimmed
     .split(/\s+/)
