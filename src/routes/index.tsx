@@ -90,6 +90,35 @@ const SIMULATED_CONVERSATION_STEPS = [
   },
 ];
 
+const PROFILE_KEY = "formbuddy-profile";
+
+const PROFILE_FIELDS = [
+  { key: "firstName", label: "First name", autoComplete: "given-name", placeholder: "Carlos" },
+  { key: "lastName", label: "Last name", autoComplete: "family-name", placeholder: "Rodriguez" },
+  {
+    key: "dateOfBirth",
+    label: "Date of birth",
+    autoComplete: "bday",
+    placeholder: "01/15/1982",
+  },
+  {
+    key: "residenceAddress",
+    label: "Street address",
+    autoComplete: "street-address",
+    placeholder: "742 Evergreen Terrace",
+  },
+  { key: "city", label: "City", autoComplete: "address-level2", placeholder: "Austin" },
+  { key: "zipCode", label: "ZIP code", autoComplete: "postal-code", placeholder: "78701" },
+  { key: "phone", label: "Phone", autoComplete: "tel", placeholder: "555-432-8765" },
+  { key: "email", label: "Email", autoComplete: "email", placeholder: "you@example.com" },
+] as const;
+
+type ProfileDraft = Record<string, string>;
+
+const EMPTY_PROFILE: ProfileDraft = Object.fromEntries(PROFILE_FIELDS.map((f) => [f.key, ""]));
+
+
+
 function Index() {
   const agentRef = useRef<DmvVoiceAgent>(new DmvVoiceAgent());
   const [formValues, setFormValues] = useState<DmvFormValues>(EMPTY_DMV_FORM);
@@ -105,6 +134,18 @@ function Index() {
   const [aiThinking, setAiThinking] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [typedAnswer, setTypedAnswer] = useState("");
+  const [profile, setProfile] = useState<ProfileDraft>(EMPTY_PROFILE);
+  const [profileDone, setProfileDone] = useState(false);
+
+  // Load any details the user saved on a previous visit.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(PROFILE_KEY);
+      if (saved) setProfile({ ...EMPTY_PROFILE, ...JSON.parse(saved) });
+    } catch {
+      /* ignore unreadable saved details */
+    }
+  }, []);
 
 
   // Refresh PDF when values or flatten toggle changes
@@ -214,6 +255,31 @@ function Index() {
     [typedAnswer, handleSpokenInput],
   );
 
+  // "About you" card — typed once, then the agent only asks what's still missing.
+  const handleProfileSubmit = useCallback(
+    (event: React.FormEvent) => {
+      event.preventDefault();
+      try {
+        localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+      } catch {
+        /* saving is a convenience only */
+      }
+      const decision = agentRef.current.seedProfile(profile);
+      setFormValues({ ...decision.updatedValues });
+      setHistory([...agentRef.current.history]);
+      setCurrentStage(decision.nextStage);
+      setAgentReasoning(decision.decisionReasoning);
+      void updatePdf(decision.updatedValues, flattenPdf);
+      setProfileDone(true);
+      startedRef.current = true;
+      void say(decision.agentUtterance).then(() => {
+        if (!listening) toggle();
+      });
+    },
+    [profile, updatePdf, flattenPdf, say, listening, toggle],
+  );
+
+
 
   const handleDownload = async () => {
     const bytes = await createTexasDmvPdf(formValues, { flatten: flattenPdf });
@@ -244,6 +310,7 @@ function Index() {
     setHistory([...agent.history]);
     setCurrentStage("GREETING_AND_TYPE");
     setAgentReasoning("Agent reset to initial DL-14A intake state.");
+    setProfileDone(false);
     void updatePdf(EMPTY_DMV_FORM, flattenPdf);
     void say(greeting);
   };
@@ -321,6 +388,65 @@ function Index() {
               <span className="font-bold">Agent Decision Reasoning: </span>
               {agentReasoning}
             </div>
+
+            {/* About you — fill the basics once, then the agent only asks what's missing */}
+            {!profileDone && (
+              <form
+                onSubmit={handleProfileSubmit}
+                aria-label="About you"
+                className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-3"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-foreground">About you</p>
+                  <p className="text-xs text-muted-foreground">
+                    Fill these in once (your browser can autofill them). The agent will then only
+                    ask about what's still missing.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  {PROFILE_FIELDS.map((field) => (
+                    <div key={field.key} className="flex flex-col gap-1">
+                      <label
+                        htmlFor={`profile-${field.key}`}
+                        className="text-[11px] font-medium text-muted-foreground"
+                      >
+                        {field.label}
+                      </label>
+                      <input
+                        id={`profile-${field.key}`}
+                        name={field.key}
+                        autoComplete={field.autoComplete}
+                        placeholder={field.placeholder}
+                        value={profile[field.key] ?? ""}
+                        onChange={(event) =>
+                          setProfile((prev) => ({ ...prev, [field.key]: event.target.value }))
+                        }
+                        className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="submit"
+                    className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                  >
+                    <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                    Use these details & start
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setProfileDone(true)}
+                    className="rounded-md border border-input bg-background px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+                  >
+                    Skip — just ask me
+                  </button>
+                </div>
+              </form>
+            )}
+
 
             {/* Microphone Button */}
             <div className="flex flex-col items-center gap-2 py-1">

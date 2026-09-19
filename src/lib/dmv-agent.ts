@@ -386,6 +386,31 @@ export class DmvVoiceAgent {
     return this.decide(filled);
   }
 
+  /**
+   * Seeds the form from the "About you" card the user typed once, then re-runs the
+   * decision loop so the agent only asks about what is still missing.
+   */
+  public seedProfile(profile: Record<string, string>): AgentDecisionResult {
+    const filled: string[] = [];
+    for (const [key, raw] of Object.entries(profile)) {
+      if (!(key in this.values)) continue;
+      const value = (raw ?? "").trim();
+      if (!value) continue;
+      (this.values as unknown as Record<string, unknown>)[key] = value;
+      filled.push(key);
+    }
+
+    this.history.push({
+      speaker: "user",
+      text: "Here are my basic details (entered on the About you card).",
+      timestamp: new Date().toLocaleTimeString(),
+      extractedFields: filled,
+    });
+
+    return this.decide(filled);
+  }
+
+
   /** Decides what to ask next based on everything captured so far. */
   private decide(extractedKeyList: string[]): AgentDecisionResult {
     // --- 2. Autonomous Decision Strategy ---
