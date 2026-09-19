@@ -77,14 +77,21 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "FormBuddy — Voice Agent for Utility Assistance" },
+      {
+        name: "description",
+        content:
+          "FormBuddy is a voice agent that guides you through the Utility Assistance application, one step at a time.",
+      },
+      { name: "author", content: "FormBuddy" },
+      { property: "og:title", content: "FormBuddy — Voice Agent for Utility Assistance" },
+      {
+        property: "og:description",
+        content:
+          "A voice agent that guides you through the Utility Assistance application, one step at a time.",
+      },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:card", content: "summary" },
     ],
     links: [
       {
