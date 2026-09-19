@@ -1,0 +1,285 @@
+{
+  "formId": "TX-DPS-DL-14A",
+  "formTitle": "Texas Driver License or Identification Card Application (Adult)",
+  "formCode": "DL-14A (Rev. 8/2025)",
+  "agency": "Texas Department of Public Safety (DPS)",
+  "sections": [
+    {
+      "id": "application_type",
+      "title": "Application Type & Class",
+      "fields": [
+        {
+          "key": "appType",
+          "label": "Application For",
+          "ocrText": "Application for: _____ Driver License _____ Identification Card",
+          "type": "choice",
+          "options": ["Driver License", "Identification Card"],
+          "prompt": "Are you applying for a Texas Driver License or an Identification Card?",
+          "required": true
+        },
+        {
+          "key": "licenseClass",
+          "label": "Class",
+          "ocrText": "Class (select one): ___ A ___ B ___ C",
+          "type": "choice",
+          "options": ["A", "B", "C"],
+          "prompt": "Which license class do you need? Class C is standard passenger vehicles.",
+          "required": true,
+          "defaultValue": "C"
+        },
+        {
+          "key": "transactionType",
+          "label": "Select One",
+          "ocrText": "Select one: _____ Original _____ Renewal _____ Replacement _____ Modify _____ Address or Name Change",
+          "type": "choice",
+          "options": ["Original", "Renewal", "Replacement", "Modify", "Address or Name Change"],
+          "prompt": "Is this an Original application, a Renewal, a Replacement, or an Address/Name change?",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "applicant_information",
+      "title": "Applicant Personal Information",
+      "fields": [
+        {
+          "key": "firstName",
+          "label": "First Name",
+          "ocrText": "First Name:_________________________________________",
+          "type": "text",
+          "prompt": "What is your legal first name?",
+          "required": true
+        },
+        {
+          "key": "lastName",
+          "label": "Last Name",
+          "ocrText": "Last Name:_________________________________________",
+          "type": "text",
+          "prompt": "What is your legal last name?",
+          "required": true
+        },
+        {
+          "key": "middleName",
+          "label": "Middle Name",
+          "ocrText": "Middle Name:_________________________________________",
+          "type": "text",
+          "prompt": "Do you have a middle name or initial?",
+          "required": false
+        },
+        {
+          "key": "dateOfBirth",
+          "label": "Date of Birth (mm/dd/yyyy)",
+          "ocrText": "Date of Birth (mm/dd/yyyy):_____________________",
+          "type": "date",
+          "prompt": "What is your date of birth?",
+          "required": true
+        },
+        {
+          "key": "sex",
+          "label": "Sex",
+          "ocrText": "Sex (select one): ___ Male ___ Female",
+          "type": "choice",
+          "options": ["Male", "Female"],
+          "prompt": "What is your biological sex (Male or Female)?",
+          "required": true
+        },
+        {
+          "key": "ssn",
+          "label": "Social Security Number",
+          "ocrText": "SSN:_________________________________________",
+          "type": "text",
+          "prompt": "What are the digits of your Social Security Number?",
+          "required": true
+        },
+        {
+          "key": "birthCity",
+          "label": "Place of Birth (City)",
+          "ocrText": "Place of birth: City:__________________________________",
+          "type": "text",
+          "prompt": "What city were you born in?",
+          "required": true
+        },
+        {
+          "key": "birthState",
+          "label": "Place of Birth (State)",
+          "ocrText": "State: _____ County:___________________ Country:____________",
+          "type": "text",
+          "prompt": "What state or country were you born in?",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "physical_description",
+      "title": "Physical Characteristics",
+      "fields": [
+        {
+          "key": "heightFt",
+          "label": "Height (Ft)",
+          "ocrText": "Height: ______ Ft. ______ In.",
+          "type": "number",
+          "prompt": "How tall are you in feet and inches?",
+          "required": true
+        },
+        {
+          "key": "heightIn",
+          "label": "Height (In)",
+          "ocrText": "Height: ______ Ft. ______ In.",
+          "type": "number",
+          "prompt": "Inches?",
+          "required": true
+        },
+        {
+          "key": "weightLbs",
+          "label": "Weight (Lbs)",
+          "ocrText": "Weight: __________ Lbs.",
+          "type": "number",
+          "prompt": "What is your approximate weight in pounds?",
+          "required": true
+        },
+        {
+          "key": "eyeColor",
+          "label": "Eye Color",
+          "ocrText": "Eye Color (select one): ____ Blue ____ Brown ____ Gray ____ Hazel ____ Green ____ Black ____ Maroon ____ Pink",
+          "type": "choice",
+          "options": ["Blue", "Brown", "Gray", "Hazel", "Green", "Black", "Maroon", "Pink"],
+          "prompt": "What is your eye color?",
+          "required": true
+        },
+        {
+          "key": "hairColor",
+          "label": "Hair Color",
+          "ocrText": "Hair Color (select one): ____ Black ____ Red ____ Gray ____ Brown ____ Blonde ____ Bald ____ White",
+          "type": "choice",
+          "options": ["Black", "Red", "Gray", "Brown", "Blonde", "Bald", "White"],
+          "prompt": "What is your hair color?",
+          "required": true
+        },
+        {
+          "key": "race",
+          "label": "Race",
+          "ocrText": "Race (select one): ____ (AI) Alaskan or American Indian ____ (AP) Asian or Pacific Islander ____ (BK) Black ____ (W) White",
+          "type": "choice",
+          "options": [
+            "Alaskan or American Indian",
+            "Asian or Pacific Islander",
+            "Black",
+            "White"
+          ],
+          "prompt": "What is your race category?",
+          "required": false
+        },
+        {
+          "key": "ethnicity",
+          "label": "Ethnicity",
+          "ocrText": "Ethnicity (select one): ____ (H) Hispanic Origin ____ (O) Not of Hispanic Origin ____ (U) Unknown",
+          "type": "choice",
+          "options": ["Hispanic Origin", "Not of Hispanic Origin", "Unknown"],
+          "prompt": "Are you of Hispanic origin, or not of Hispanic origin?",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "contact_information",
+      "title": "Contact & Residential Information",
+      "fields": [
+        {
+          "key": "residenceAddress",
+          "label": "Residence Street Address",
+          "ocrText": "Residence Address:_______________________________________________________",
+          "type": "text",
+          "prompt": "What is your current Texas residential street address?",
+          "required": true
+        },
+        {
+          "key": "city",
+          "label": "City",
+          "ocrText": "City:_______________________________________________________",
+          "type": "text",
+          "prompt": "What city?",
+          "required": true
+        },
+        {
+          "key": "state",
+          "label": "State",
+          "ocrText": "State: _______",
+          "type": "text",
+          "defaultValue": "TX",
+          "prompt": "State?",
+          "required": true
+        },
+        {
+          "key": "zipCode",
+          "label": "Zip Code",
+          "ocrText": "Zip Code:____________",
+          "type": "text",
+          "prompt": "What is your 5-digit zip code?",
+          "required": true
+        },
+        {
+          "key": "county",
+          "label": "County",
+          "ocrText": "County:_______________________",
+          "type": "text",
+          "prompt": "What Texas county is that located in?",
+          "required": true
+        },
+        {
+          "key": "phone",
+          "label": "Primary Phone",
+          "ocrText": "Primary Phone:________________________ Cellular Phone*:________________________",
+          "type": "phone",
+          "prompt": "What is your best phone number?",
+          "required": true
+        },
+        {
+          "key": "email",
+          "label": "Email Address",
+          "ocrText": "Email:_______________________________________________________",
+          "type": "email",
+          "prompt": "What is your email address for renewal notices?",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "required_eligibility",
+      "title": "Required Eligibility Questions",
+      "fields": [
+        {
+          "key": "isCitizen",
+          "label": "U.S. Citizen",
+          "ocrText": "1. Are you a citizen of the United States?",
+          "type": "boolean",
+          "prompt": "Are you a citizen of the United States?",
+          "required": true
+        },
+        {
+          "key": "registerVote",
+          "label": "Voter Registration",
+          "ocrText": "2. If you are a U.S. citizen, would you like to register to vote?",
+          "type": "boolean",
+          "prompt": "Would you like to register to vote or update your voter registration through DPS?",
+          "required": true
+        },
+        {
+          "key": "isVeteran",
+          "label": "Veteran Status",
+          "ocrText": "3. Are you a veteran?",
+          "type": "boolean",
+          "prompt": "Are you a U.S. military veteran?",
+          "required": true
+        },
+        {
+          "key": "organDonor",
+          "label": "Organ Donor Registry",
+          "ocrText": "5. Would you like to register as an organ donor? (Donate Life Texas)",
+          "type": "boolean",
+          "prompt": "Would you like to register as an organ donor with Donate Life Texas?",
+          "required": true
+        }
+      ]
+    }
+  ]
+}
