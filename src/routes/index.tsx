@@ -130,21 +130,38 @@ function Index() {
   const handleSpokenInput = useCallback(
     (spokenText: string) => {
       const agent = agentRef.current;
+      // 1. Instant rule pass so the form reacts immediately.
       const decision = agent.processSpokenInput(spokenText);
-
       setFormValues({ ...decision.updatedValues });
       setHistory([...agent.history]);
       setCurrentStage(decision.nextStage);
       setAgentReasoning(decision.decisionReasoning);
-
-      // Autonomous agent speaks the next utterance aloud
-      speak(decision.agentUtterance);
-
-      // Update the live PDF
       void updatePdf(decision.updatedValues, flattenPdf);
+
+      // 2. AI pass (Gemini Flash) fills whatever the rules missed in rambling speech.
+      setAiThinking(true);
+      void extractDmvFields({ transcript: spokenText })
+        .then((result) => {
+          if (Object.keys(result.values).length === 0) {
+            speak(decision.agentUtterance);
+            return;
+          }
+          const merged = agent.applyExtractedValues(result.values);
+          setFormValues({ ...merged.updatedValues });
+          setHistory([...agent.history]);
+          setCurrentStage(merged.nextStage);
+          setAgentReasoning(merged.decisionReasoning);
+          void updatePdf(merged.updatedValues, flattenPdf);
+          speak(merged.agentUtterance);
+        })
+        .catch(() => {
+          speak(decision.agentUtterance);
+        })
+        .finally(() => setAiThinking(false));
     },
     [flattenPdf, updatePdf],
   );
+
 
   const { supported, listening, interim, toggle } = useSpeechRecognition(handleSpokenInput);
 
