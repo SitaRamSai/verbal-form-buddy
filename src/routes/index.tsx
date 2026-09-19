@@ -310,6 +310,7 @@ function Index() {
     setHistory([...agent.history]);
     setCurrentStage("GREETING_AND_TYPE");
     setAgentReasoning("Agent reset to initial DL-14A intake state.");
+    setProfileDone(false);
     void updatePdf(EMPTY_DMV_FORM, flattenPdf);
     void say(greeting);
   };
