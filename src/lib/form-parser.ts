@@ -1,39 +1,82 @@
 // Pure, client-safe helpers that turn spoken sentences into form values.
+// Target form: Texas Driver License / ID Card Application (Form DL-14A).
 
 export interface FormValues {
-  fullName: string;
+  lastName: string;
+  firstName: string;
+  middleName: string;
   dateOfBirth: string;
+  ssn: string;
+  heightFeet: string;
+  heightInches: string;
+  weight: string;
+  placeOfBirthCity: string;
+  placeOfBirthState: string;
+  fathersLastName: string;
+  mothersMaidenName: string;
+  residenceAddress: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  county: string;
   phone: string;
+  cellPhone: string;
   email: string;
-  address: string;
-  householdSize: string;
-  monthlyIncome: string;
-  utilityProvider: string;
-  accountNumber: string;
+  emergencyName: string;
+  emergencyPhone: string;
+  emergencyAddress: string;
 }
 
 export const EMPTY_FORM: FormValues = {
-  fullName: "",
+  lastName: "",
+  firstName: "",
+  middleName: "",
   dateOfBirth: "",
+  ssn: "",
+  heightFeet: "",
+  heightInches: "",
+  weight: "",
+  placeOfBirthCity: "",
+  placeOfBirthState: "",
+  fathersLastName: "",
+  mothersMaidenName: "",
+  residenceAddress: "",
+  city: "",
+  state: "",
+  zipCode: "",
+  county: "",
   phone: "",
+  cellPhone: "",
   email: "",
-  address: "",
-  householdSize: "",
-  monthlyIncome: "",
-  utilityProvider: "",
-  accountNumber: "",
+  emergencyName: "",
+  emergencyPhone: "",
+  emergencyAddress: "",
 };
 
 export const FIELD_LABELS: Record<keyof FormValues, string> = {
-  fullName: "Full name",
+  lastName: "Last name",
+  firstName: "First name",
+  middleName: "Middle name",
   dateOfBirth: "Date of birth",
-  phone: "Phone number",
+  ssn: "Social Security number",
+  heightFeet: "Height (feet)",
+  heightInches: "Height (inches)",
+  weight: "Weight",
+  placeOfBirthCity: "Place of birth — city",
+  placeOfBirthState: "Place of birth — state",
+  fathersLastName: "Father's last name",
+  mothersMaidenName: "Mother's maiden name",
+  residenceAddress: "Residence address",
+  city: "City",
+  state: "State",
+  zipCode: "ZIP code",
+  county: "County",
+  phone: "Primary phone",
+  cellPhone: "Cellular phone",
   email: "Email",
-  address: "Home address",
-  householdSize: "Household size",
-  monthlyIncome: "Monthly income",
-  utilityProvider: "Utility provider",
-  accountNumber: "Account number",
+  emergencyName: "Emergency contact name",
+  emergencyPhone: "Emergency contact phone",
+  emergencyAddress: "Emergency contact address",
 };
 
 // --- number words -> digits -------------------------------------------------
@@ -80,8 +123,12 @@ export function normalizeNumberWords(input: string): string {
     const groups: number[] = [];
     for (let i = 0; i < run.length; i++) {
       const value = run[i] ?? 0;
+      const last = groups[groups.length - 1] ?? 0;
       if (value === 100 && groups.length > 0) {
-        groups[groups.length - 1] = (groups[groups.length - 1] ?? 0) * 100;
+        groups[groups.length - 1] = last * 100;
+      } else if (groups.length > 0 && last >= 100 && value < 100) {
+        // "one hundred fifty" -> 150
+        groups[groups.length - 1] = last + value;
       } else if (value >= 20 && (run[i + 1] ?? -1) > 0 && (run[i + 1] ?? -1) < 10) {
         groups.push(value + (run[i + 1] ?? 0));
         i++;
@@ -118,22 +165,33 @@ const MONTHS: Record<string, number> = {
 
 const MONTH_NAMES = Object.keys(MONTHS);
 
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/** Returns the date as mm/dd/yyyy, which is what the DL-14A expects. */
 export function formatSpokenDate(raw: string): string | null {
   const text = normalizeNumberWords(raw);
   const monthMatch = MONTH_NAMES.find((m) => new RegExp(`\\b${m}\\b`).test(text));
-  if (!monthMatch) return null;
+
+  if (!monthMatch) {
+    // Numeric forms: "01/05/1985", "1 5 1985".
+    const numbers = (text.match(/\d+/g) ?? []).map(Number);
+    if (numbers.length < 3) return null;
+    const [m, d, y] = numbers as [number, number, number];
+    if (m < 1 || m > 12 || d < 1 || d > 31 || y < 1900) return null;
+    return `${pad(m)}/${pad(d)}/${y}`;
+  }
+
   const withoutMonth = text.replace(new RegExp(`\\b${monthMatch}\\b`), " ").trim();
   const numbers = (withoutMonth.match(/\d+/g) ?? []).map(Number);
-  const month = MONTHS[monthMatch];
+  const month = MONTHS[monthMatch]!;
   let day: number | null = null;
   let year: number | null = null;
   for (const n of numbers) {
     if (n > 31 && year === null) year = n;
     else if (n >= 1 && n <= 31 && day === null) day = n;
   }
-  if (day === null) return null;
-  const pretty = `${monthMatch.charAt(0).toUpperCase()}${monthMatch.slice(1)} ${day}`;
-  return year !== null ? `${pretty}, ${year}` : pretty;
+  if (day === null || year === null) return null;
+  return `${pad(month)}/${pad(day)}/${year}`;
 }
 
 // --- value cleaners ---------------------------------------------------------
@@ -154,9 +212,9 @@ function cleanName(value: string): string {
 
 function cleanPhone(value: string): string | null {
   const digits = normalizeNumberWords(value).replace(/\D/g, "");
-  if (digits.length === 11 && digits.startsWith("1")) return digits.slice(1);
-  if (digits.length !== 10) return null;
-  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  const ten = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+  if (ten.length !== 10) return null;
+  return `(${ten.slice(0, 3)}) ${ten.slice(3, 6)}-${ten.slice(6)}`;
 }
 
 function cleanEmail(value: string): string | null {
@@ -169,84 +227,175 @@ function cleanEmail(value: string): string | null {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text) ? text : null;
 }
 
+function splitName(full: string): Partial<FormValues> | null {
+  const parts = cleanName(full).split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return null;
+  if (parts.length === 1) return { firstName: parts[0]! };
+  if (parts.length === 2) return { firstName: parts[0]!, lastName: parts[1]! };
+  return {
+    firstName: parts[0]!,
+    middleName: parts.slice(1, -1).join(" "),
+    lastName: parts[parts.length - 1]!,
+  };
+}
+
 // --- field extraction -------------------------------------------------------
 
 interface FieldRule {
-  field: keyof FormValues;
   patterns: RegExp[];
-  clean: (value: string) => string | null;
+  /** Turns the captured text into one or more field values. */
+  apply: (value: string) => Partial<FormValues> | null;
 }
+
+const text = (v: string) => v.replace(/\s+/g, " ").trim();
+
+const titleCase = (v: string) =>
+  text(v)
+    .split(" ")
+    .map((w) => (/^\d/.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(" ");
 
 const RULES: FieldRule[] = [
   {
-    field: "fullName",
-    patterns: [/(?:my\s+)?(?:full\s+)?name\s+is\s+([^.,!?;]+)/i],
-    clean: cleanName,
-  },
-  {
-    field: "phone",
     patterns: [
-      /(?:phone|mobile|cell)(?:\s+number)?\s+(?:is\s+)?([^.,!?;]+)/i,
-      /(?:reach|call)\s+(?:me\s+)?at\s+([^.,!?;]+)/i,
+      // "name is ..." but not "maiden name is", "last name is", etc.
+      /(?<!maiden\s)(?<!last\s)(?<!first\s)(?<!middle\s)(?<!contact\s)(?:my\s+)?(?:full\s+)?name\s+is\s+([^.,!?;]+)/i,
+      /\bi\s+am\s+called\s+([^.,!?;]+)/i,
     ],
-    clean: cleanPhone,
+    apply: splitName,
   },
   {
-    field: "email",
-    patterns: [/e-?mail(?:\s+address)?\s+(?:is\s+)?([^.,!?;]+)/i],
-    clean: cleanEmail,
+    patterns: [/last\s+name\s+is\s+([^.,!?;]+)/i],
+    apply: (v) => ({ lastName: cleanName(v) }),
   },
   {
-    field: "dateOfBirth",
+    patterns: [/first\s+name\s+is\s+([^.,!?;]+)/i],
+    apply: (v) => ({ firstName: cleanName(v) }),
+  },
+  {
+    patterns: [/middle\s+name\s+is\s+([^.,!?;]+)/i],
+    apply: (v) => ({ middleName: cleanName(v) }),
+  },
+  {
     patterns: [
       /(?:date\s+of\s+birth|d\.?o\.?b\.?|birthday)\s+(?:is\s+|on\s+)?([^.,!?;]+)/i,
-      /(?:i\s+was\s+)?born\s+(?:on\s+|in\s+)?([^.,!?;]+)/i,
+      /(?:i\s+was\s+)?born\s+on\s+([^.,!?;]+)/i,
     ],
-    clean: (v) => formatSpokenDate(v),
-  },
-  {
-    field: "address",
-    patterns: [
-      /(?:my\s+address\s+is|i\s+live\s+at|address\s+is|living\s+at)\s+([^.,!?;]+)/i,
-    ],
-    clean: (v) => v.replace(/\s+/g, " ").trim(),
-  },
-  {
-    field: "householdSize",
-    patterns: [
-      /(?:household\s+size|household|family)\s+(?:size\s+)?(?:is\s+|of\s+)?(\d+)/i,
-      /(?:there\s+are\s+)?(\d+)\s+(?:people|persons|members)/i,
-    ],
-    clean: (v) => {
-      const n = Number(v);
-      return n >= 1 && n <= 20 ? String(n) : null;
+    apply: (v) => {
+      const d = formatSpokenDate(v);
+      return d ? { dateOfBirth: d } : null;
     },
   },
   {
-    field: "monthlyIncome",
     patterns: [
-      /(?:monthly\s+income|income)\s+(?:is\s+)?(?:about\s+|around\s+|roughly\s+)?\$?\s*([\d,]+)/i,
-      /i\s+(?:make|earn)\s+(?:about\s+|around\s+|roughly\s+)?\$?\s*([\d,]+)/i,
+      /(?:social\s+security(?:\s+number)?|ssn)\s+(?:is\s+)?([\d\s-]+)/i,
     ],
-    clean: (v) => {
-      const n = Number(v.replace(/,/g, ""));
-      return Number.isFinite(n) && n > 0 ? `$${n.toLocaleString("en-US")}` : null;
+    apply: (v) => {
+      const digits = v.replace(/\D/g, "");
+      if (digits.length !== 9) return null;
+      return {
+        ssn: `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`,
+      };
     },
   },
   {
-    field: "utilityProvider",
     patterns: [
-      /(?:utility\s+provider|utility\s+company|provider|company)\s+(?:is\s+)?([^.,!?;]+)/i,
+      /((?:\d{1})\s*(?:foot|feet|ft)\s*(?:\d{1,2})?\s*(?:inch|inches|in)?)/i,
     ],
-    clean: (v) => cleanName(v),
+    apply: (v) => {
+      const nums = v.match(/\d+/g) ?? [];
+      const feet = Number(nums[0]);
+      if (!(feet >= 3 && feet <= 8)) return null;
+      const inches = nums[1] !== undefined ? Number(nums[1]) : null;
+      return {
+        heightFeet: String(feet),
+        ...(inches !== null && inches >= 0 && inches < 12
+          ? { heightInches: String(inches) }
+          : {}),
+      };
+    },
   },
   {
-    field: "accountNumber",
-    patterns: [/(?:account\s+number|account)\s+(?:is\s+)?([\d\s]+)/i],
-    clean: (v) => {
-      const digits = normalizeNumberWords(v).replace(/\D/g, "");
-      return digits.length >= 4 && digits.length <= 20 ? digits : null;
+    patterns: [
+      /(?:i\s+weigh|my\s+weight\s+is|weight\s+is|weigh)\s+(?:about\s+|around\s+)?(\d{2,3})/i,
+    ],
+    apply: (v) => {
+      const n = Number(v.replace(/\D/g, ""));
+      return n >= 40 && n <= 700 ? { weight: String(n) } : null;
     },
+  },
+  {
+    patterns: [
+      /(?:place\s+of\s+birth\s+is|i\s+was\s+born\s+in|born\s+in)\s+([^.,!?;]+)/i,
+    ],
+    apply: (v) => {
+      const parts = text(v).split(/\s+(?:comma|in)\s+/i);
+      const city = cleanName(parts[0] ?? "");
+      if (!city) return null;
+      const st = parts[1] ? cleanName(parts[1]) : "";
+      return { placeOfBirthCity: city, ...(st ? { placeOfBirthState: st } : {}) };
+    },
+  },
+  {
+    patterns: [/father'?s?\s+last\s+name\s+(?:is\s+)?([^.,!?;]+)/i],
+    apply: (v) => ({ fathersLastName: cleanName(v) }),
+  },
+  {
+    patterns: [/mother'?s?\s+maiden\s+name\s+(?:is\s+)?([^.,!?;]+)/i],
+    apply: (v) => ({ mothersMaidenName: cleanName(v) }),
+  },
+  {
+    patterns: [
+      /(?:my\s+address\s+is|i\s+live\s+at|residence\s+address\s+is|address\s+is|living\s+at)\s+([^.,!?;]+)/i,
+    ],
+    apply: (v) => ({ residenceAddress: titleCase(v) }),
+  },
+  {
+    patterns: [/(?:my\s+city\s+is|city\s+is|i\s+live\s+in)\s+([^.,!?;]+)/i],
+    apply: (v) => ({ city: cleanName(v) }),
+  },
+  {
+    patterns: [/(?:my\s+)?state\s+is\s+([^.,!?;]+)/i],
+    apply: (v) => ({ state: cleanName(v) }),
+  },
+  {
+    patterns: [/zip(?:\s+code)?\s+(?:is\s+)?([\d\s]{5,})/i],
+    apply: (v) => {
+      const digits = v.replace(/\D/g, "");
+      return digits.length >= 5 ? { zipCode: digits.slice(0, 5) } : null;
+    },
+  },
+  {
+    patterns: [/county\s+(?:is\s+)?([^.,!?;]+)/i],
+    apply: (v) => ({ county: cleanName(v) }),
+  },
+  {
+    patterns: [/(?:cell(?:ular)?|mobile)\s*(?:phone)?(?:\s+number)?\s+(?:is\s+)?([^.,!?;]+)/i],
+    apply: (v) => {
+      const p = cleanPhone(v);
+      return p ? { cellPhone: p } : null;
+    },
+  },
+  {
+    patterns: [
+      /(?:primary\s+)?phone(?:\s+number)?\s+(?:is\s+)?([^.,!?;]+)/i,
+      /(?:reach|call)\s+(?:me\s+)?at\s+([^.,!?;]+)/i,
+    ],
+    apply: (v) => {
+      const p = cleanPhone(v);
+      return p ? { phone: p } : null;
+    },
+  },
+  {
+    patterns: [/e-?mail(?:\s+address)?\s+(?:is\s+)?([^.,!?;]+)/i],
+    apply: (v) => {
+      const e = cleanEmail(v);
+      return e ? { email: e } : null;
+    },
+  },
+  {
+    patterns: [/emergency\s+contact\s+(?:name\s+)?(?:is\s+)?([^.,!?;]+)/i],
+    apply: (v) => ({ emergencyName: cleanName(v) }),
   },
 ];
 
@@ -257,9 +406,13 @@ export function parseTranscript(transcript: string): Partial<FormValues> {
     for (const pattern of rule.patterns) {
       const match = normalized.match(pattern);
       if (!match) continue;
-      const value = rule.clean(match[1] ?? "");
-      if (value) {
-        filled[rule.field] = value;
+      const values = rule.apply(match[1] ?? match[0] ?? "");
+      if (values) {
+        for (const [key, value] of Object.entries(values)) {
+          if (value && !filled[key as keyof FormValues]) {
+            filled[key as keyof FormValues] = value;
+          }
+        }
         break;
       }
     }

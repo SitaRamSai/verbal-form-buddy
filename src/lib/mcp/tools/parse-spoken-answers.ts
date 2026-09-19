@@ -6,7 +6,7 @@ export default defineTool({
   name: "parse_spoken_answers",
   title: "Parse spoken answers",
   description:
-    "Turn a spoken or typed sentence (for example \"my name is Maria Lopez and my monthly income is twelve hundred dollars\") into Utility Assistance Application field values. Also detects the voice commands repeat, why, save and documents.",
+    "Turn a spoken or typed sentence (for example \"my name is Maria Lopez and I was born on January fifth nineteen eighty five\") into Texas DL-14A application field values. Also detects the voice commands repeat, why, save and documents.",
   inputSchema: {
     transcript: z
       .string()

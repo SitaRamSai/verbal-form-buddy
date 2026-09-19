@@ -23,17 +23,17 @@ import { PdfPreview } from "@/components/pdf-preview";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "FormBuddy — Voice Agent for Utility Assistance" },
+      { title: "FormBuddy — Voice Agent for the Texas DL-14A Application" },
       {
         name: "description",
         content:
-          "Speak naturally and FormBuddy fills out the Utility Assistance application for you, one step at a time.",
+          "Speak naturally and FormBuddy fills out the Texas Driver License / ID Card application (Form DL-14A) for you, one step at a time.",
       },
-      { property: "og:title", content: "FormBuddy — Voice Agent for Utility Assistance" },
+      { property: "og:title", content: "FormBuddy — Voice Agent for the Texas DL-14A Application" },
       {
         property: "og:description",
         content:
-          "Speak naturally and FormBuddy fills out the Utility Assistance application for you.",
+          "Speak naturally and FormBuddy fills out the Texas Driver License / ID Card application for you.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -53,37 +53,65 @@ const VOICE_COMMANDS = [
 ];
 
 const DOCUMENTS = [
-  "Photo ID",
-  "Proof of income (last 30 days)",
-  "Recent utility bill",
-  "Proof of address (lease or mortgage)",
-  "Social Security numbers for household members",
+  "Proof of identity (birth certificate or passport)",
+  "Social Security card or number",
+  "Proof of Texas residency (two documents)",
+  "Proof of U.S. citizenship or lawful presence",
+  "Current insurance or vehicle registration (for a driver license)",
 ];
 
 const FIELD_HINTS: Record<keyof FormValues, string> = {
-  fullName: "They use it to verify your identity on the application.",
-  dateOfBirth: "It confirms your identity and checks age-based programs.",
-  phone: "The utility office calls this number about your application.",
-  email: "They send your approval decision and status updates here.",
-  address: "Your address decides which utility company serves you.",
-  householdSize: "Income limits depend on how many people live with you.",
-  monthlyIncome: "Assistance is income-based; this decides your eligibility.",
-  utilityProvider: "They need to know which company sends your bill.",
-  accountNumber: "It links the assistance payment to your utility account.",
+  lastName: "It must match the name on your identity document.",
+  firstName: "It must match the name on your identity document.",
+  middleName: "Include it if it appears on your identity document.",
+  dateOfBirth: "It confirms your identity and your eligibility by age.",
+  ssn: "Texas requires your Social Security number on this application.",
+  heightFeet: "Height is printed on the card and used to identify you.",
+  heightInches: "Height is printed on the card and used to identify you.",
+  weight: "Weight is printed on the card and used to identify you.",
+  placeOfBirthCity: "Place of birth helps confirm your identity records.",
+  placeOfBirthState: "Place of birth helps confirm your identity records.",
+  fathersLastName: "It is used to verify your identity records.",
+  mothersMaidenName: "It is used to verify your identity records.",
+  residenceAddress: "Texas requires the address where you actually live.",
+  city: "Part of your residence address.",
+  state: "Part of your residence address.",
+  zipCode: "Part of your residence address.",
+  county: "The county decides which office handles your application.",
+  phone: "The driver license office calls this number about your application.",
+  cellPhone: "A second number in case they cannot reach you.",
+  email: "They send status updates and appointment notices here.",
+  emergencyName: "Optional: who should be contacted in an emergency.",
+  emergencyPhone: "Optional: how to reach your emergency contact.",
+  emergencyAddress: "Optional: where your emergency contact lives.",
 };
 
 const DRAFT_KEY = "formbuddy-draft";
 
 const FORM_FIELDS: { field: keyof FormValues; type: string; placeholder: string; wide?: boolean }[] = [
-  { field: "fullName", type: "text", placeholder: "e.g. Maria Lopez", wide: true },
-  { field: "dateOfBirth", type: "text", placeholder: "e.g. January 5, 1985" },
+  { field: "firstName", type: "text", placeholder: "e.g. Maria" },
+  { field: "middleName", type: "text", placeholder: "e.g. Elena" },
+  { field: "lastName", type: "text", placeholder: "e.g. Lopez" },
+  { field: "dateOfBirth", type: "text", placeholder: "e.g. 01/05/1985" },
+  { field: "ssn", type: "text", placeholder: "e.g. 123-45-6789" },
+  { field: "heightFeet", type: "text", placeholder: "e.g. 5" },
+  { field: "heightInches", type: "text", placeholder: "e.g. 6" },
+  { field: "weight", type: "text", placeholder: "e.g. 150" },
+  { field: "placeOfBirthCity", type: "text", placeholder: "e.g. Houston" },
+  { field: "placeOfBirthState", type: "text", placeholder: "e.g. Texas" },
+  { field: "fathersLastName", type: "text", placeholder: "e.g. Lopez" },
+  { field: "mothersMaidenName", type: "text", placeholder: "e.g. Garcia" },
+  { field: "residenceAddress", type: "text", placeholder: "e.g. 42 Elm Street", wide: true },
+  { field: "city", type: "text", placeholder: "e.g. Austin" },
+  { field: "state", type: "text", placeholder: "e.g. TX" },
+  { field: "zipCode", type: "text", placeholder: "e.g. 78701" },
+  { field: "county", type: "text", placeholder: "e.g. Travis" },
   { field: "phone", type: "text", placeholder: "e.g. (555) 123-4567" },
+  { field: "cellPhone", type: "text", placeholder: "e.g. (555) 987-6543" },
   { field: "email", type: "text", placeholder: "e.g. maria@example.com", wide: true },
-  { field: "address", type: "text", placeholder: "e.g. 42 Elm Street, Springfield", wide: true },
-  { field: "householdSize", type: "text", placeholder: "e.g. 4" },
-  { field: "monthlyIncome", type: "text", placeholder: "e.g. $2,400" },
-  { field: "utilityProvider", type: "text", placeholder: "e.g. City Power & Light", wide: true },
-  { field: "accountNumber", type: "text", placeholder: "e.g. 1234567890", wide: true },
+  { field: "emergencyName", type: "text", placeholder: "e.g. Ana Lopez" },
+  { field: "emergencyPhone", type: "text", placeholder: "e.g. (555) 222-3333" },
+  { field: "emergencyAddress", type: "text", placeholder: "e.g. 10 Oak Ave, Austin", wide: true },
 ];
 
 function Index() {
@@ -190,7 +218,7 @@ function Index() {
             FormBuddy
           </h1>
           <p className="text-sm text-muted-foreground">
-            Utility Assistance application — speak and FormBuddy fills in the form.
+            Texas Driver License / ID Card application — speak and FormBuddy fills in the form.
           </p>
         </header>
 
@@ -297,10 +325,10 @@ function Index() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-foreground">
-                  Utility Assistance Application
+                  Texas Driver License / ID Card Application
                 </h2>
                 <p className="text-xs text-muted-foreground">
-                  Official Form UA-6 (PDF) — filled live as you speak
+                  Official Form DL-14A (PDF) — filled live as you speak
                 </p>
               </div>
               <span className="text-sm text-muted-foreground">
@@ -321,7 +349,7 @@ function Index() {
             <div className="flex flex-wrap gap-2">
               <a
                 href={pdfUrl ?? "#"}
-                download="utility-assistance-application.pdf"
+                download="dl-14a-application.pdf"
                 aria-disabled={!pdfUrl}
                 className="rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
               >

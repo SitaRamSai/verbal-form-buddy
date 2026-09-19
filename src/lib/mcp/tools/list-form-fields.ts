@@ -5,7 +5,7 @@ export default defineTool({
   name: "list_form_fields",
   title: "List application fields",
   description:
-    "List the fields of the Utility Assistance Application (Form UA-6) that FormBuddy can fill.",
+    "List the fields of the Texas Driver License / ID Card Application (Form DL-14A) that FormBuddy can fill.",
   inputSchema: {},
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: () => {
