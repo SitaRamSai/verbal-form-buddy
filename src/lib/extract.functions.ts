@@ -7,6 +7,8 @@ const FIELD_KEYS = Object.keys(EMPTY_FORM) as (keyof FormValues)[];
 
 const ExtractInput = z.object({
   transcript: z.string().min(1).max(2000),
+  field: z.string().max(60).optional(),
+  question: z.string().max(300).optional(),
 });
 
 const shape = Object.fromEntries(
