@@ -197,14 +197,42 @@ function Index() {
   const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [aiThinking, setAiThinking] = useState(false);
-  const [stage, setStage] = useState<"welcome" | "choose" | "filling">("welcome");
+  const [stage, setStage] = useState<"welcome" | "choose" | "basics" | "filling">("welcome");
+  const [guided, setGuided] = useState(true);
+  const [currentField, setCurrentField] = useState<keyof FormValues | null>(null);
+  const [hasProfile, setHasProfile] = useState(false);
   const lastFilledRef = useRef<(keyof FormValues)[]>([]);
+  const skippedRef = useRef<Set<keyof FormValues>>(new Set());
+  const currentFieldRef = useRef<keyof FormValues | null>(null);
+  const guidedRef = useRef(true);
+
+  /** Ask the next unanswered question out loud. */
+  const askNext = useCallback((vals: FormValues) => {
+    const next = FORM_FIELDS.find(
+      ({ field }) => !vals[field] && !skippedRef.current.has(field),
+    );
+    if (!next) {
+      currentFieldRef.current = null;
+      setCurrentField(null);
+      const done =
+        "That's everything I need. Review your answers below, then download the filled form.";
+      setStatus(done);
+      speak(done);
+      return;
+    }
+    currentFieldRef.current = next.field;
+    setCurrentField(next.field);
+    setStatus(QUESTIONS[next.field]);
+    speak(QUESTIONS[next.field]);
+  }, []);
 
   const handleTranscript = useCallback((text: string) => {
     const command = detectCommand(text);
     if (command === "repeat") {
-      speak(WELCOME_SCRIPT);
-      setStatus("Repeating the welcome message.");
+      const field = currentFieldRef.current;
+      const line = guidedRef.current && field ? QUESTIONS[field] : WELCOME_SCRIPT;
+      speak(line);
+      setStatus(line);
       return;
     }
     if (command === "documents") {
@@ -213,7 +241,7 @@ function Index() {
       return;
     }
     if (command === "why") {
-      const last = lastFilledRef.current[0];
+      const last = currentFieldRef.current ?? lastFilledRef.current[0];
       setStatus(
         last
           ? `${FIELD_LABELS[last]}: ${FIELD_HINTS[last]}`
@@ -231,13 +259,34 @@ function Index() {
       return;
     }
 
+    // "skip" / "next" moves past the current question in guided mode.
+    if (guidedRef.current && currentFieldRef.current && /^\s*(skip|pass|next)\b/i.test(text)) {
+      skippedRef.current.add(currentFieldRef.current);
+      askNext(values);
+      return;
+    }
+
     const parsed = parseTranscript(text);
     const keys = Object.keys(parsed) as (keyof FormValues)[];
-    if (keys.length > 0) {
-      setValues((current) => ({ ...current, ...parsed }));
-      setJustFilled(new Set(keys));
-      lastFilledRef.current = keys;
-      setStatus(`Filled ${keys.map((k) => FIELD_LABELS[k]).join(", ")}.`);
+    let merged: FormValues = { ...values, ...parsed };
+
+    // In guided mode, a bare answer belongs to the question just asked.
+    const current = currentFieldRef.current;
+    if (guidedRef.current && current && keys.length === 0) {
+      const bare = text.trim().replace(/[.!?]+$/, "");
+      if (bare && bare.split(/\s+/).length <= 6) {
+        merged = { ...merged, [current]: bare };
+      }
+    }
+
+    const filledNow = (Object.keys(merged) as (keyof FormValues)[]).filter(
+      (k) => merged[k] !== values[k],
+    );
+    if (filledNow.length > 0) {
+      setValues(merged);
+      setJustFilled(new Set(filledNow));
+      lastFilledRef.current = filledNow;
+      setStatus(`Filled ${filledNow.map((k) => FIELD_LABELS[k]).join(", ")}.`);
     } else {
       setStatus(`I heard: “${text}”. Letting AI take a look…`);
     }
@@ -247,10 +296,10 @@ function Index() {
     extractFields({ data: { transcript: text } })
       .then((result) => {
         const extra = Object.entries(result.values).filter(
-          ([field, value]) => value && !parsed[field as keyof FormValues],
+          ([field, value]) => value && !merged[field as keyof FormValues],
         ) as [keyof FormValues, string][];
         if (extra.length === 0) {
-          if (keys.length === 0) {
+          if (filledNow.length === 0) {
             setStatus(
               result.error ??
                 `I heard: “${text}”, but couldn't tell which field it belongs to.`,
@@ -259,22 +308,27 @@ function Index() {
           return;
         }
         const extraKeys = extra.map(([field]) => field);
-        setValues((current) => {
-          const next = { ...current };
-          for (const [field, value] of extra) next[field] = value;
-          return next;
-        });
-        setJustFilled(new Set([...keys, ...extraKeys]));
-        lastFilledRef.current = [...extraKeys, ...keys];
+        for (const [field, value] of extra) merged[field] = value;
+        setValues({ ...merged });
+        setJustFilled(new Set([...filledNow, ...extraKeys]));
+        lastFilledRef.current = [...extraKeys, ...filledNow];
         setStatus(
-          `Filled ${[...keys, ...extraKeys].map((k) => FIELD_LABELS[k]).join(", ")}.`,
+          `Filled ${[...filledNow, ...extraKeys].map((k) => FIELD_LABELS[k]).join(", ")}.`,
         );
       })
       .catch(() => {
-        if (keys.length === 0) setStatus(`I heard: “${text}”, but the AI couldn't be reached.`);
+        if (filledNow.length === 0)
+          setStatus(`I heard: “${text}”, but the AI couldn't be reached.`);
       })
-      .finally(() => setAiThinking(false));
-  }, [values]);
+      .finally(() => {
+        setAiThinking(false);
+        if (guidedRef.current) {
+          const field = currentFieldRef.current;
+          if (!field || merged[field]) askNext(merged);
+        }
+      });
+  }, [values, askNext]);
+
 
   const { supported, listening, interim, toggle } =
     useSpeechRecognition(handleTranscript);
