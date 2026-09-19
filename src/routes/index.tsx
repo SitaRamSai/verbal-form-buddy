@@ -153,6 +153,35 @@ function Index() {
     }
   }, []);
 
+  // Re-render the real PDF whenever the collected values change.
+  useEffect(() => {
+    let cancelled = false;
+    let created: string | null = null;
+    const timer = setTimeout(() => {
+      fillPdf(values)
+        .then((url) => {
+          if (cancelled) {
+            URL.revokeObjectURL(url);
+            return;
+          }
+          created = url;
+          setPdfError(null);
+          setPdfUrl((previous) => {
+            if (previous) URL.revokeObjectURL(previous);
+            return url;
+          });
+        })
+        .catch(() => {
+          if (!cancelled) setPdfError("Couldn't open the application PDF.");
+        });
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      if (created) URL.revokeObjectURL(created);
+    };
+  }, [values]);
+
   const filledCount = FORM_FIELDS.filter(({ field }) => values[field]).length;
 
   return (
