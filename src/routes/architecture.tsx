@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   Accessibility,
+  AlertTriangle,
   ArrowRight,
   Bot,
   Braces,
@@ -131,6 +132,63 @@ const AGENT_STEPS = [
     body: "FormBuddy assembles a reviewable answer packet that Jordan submits himself through the official channel.",
   },
 ];
+
+/** What the prototype actually runs today, as opposed to the target design above. */
+const BUILT_PIPELINE = [
+  { label: "Microphone", detail: "Browser Web Speech API (Chrome / Edge)", icon: Mic },
+  { label: "Raw transcript", detail: "One undivided stream, no speaker labels", icon: ClipboardList },
+  { label: "Rule pass", detail: "src/lib/form-parser.ts — instant pattern matches", icon: Braces },
+  {
+    label: "Plausibility guard",
+    detail: "isPlausibleAnswer() rejects filler, questions and wrong-shaped answers",
+    icon: ShieldCheck,
+  },
+  {
+    label: "Gemini Flash",
+    detail: "google/gemini-3.8-flash via Lovable AI, told which question was asked",
+    icon: Brain,
+  },
+  { label: "Field values", detail: "22 DL-14A fields, empty rather than guessed", icon: CheckCircle2 },
+  { label: "PDF mapper", detail: "src/lib/pdf-form.ts writes the real AcroForm boxes", icon: Braces },
+  { label: "Review & download", detail: "Editable list, then the filled DL-14A PDF", icon: FileDown },
+];
+
+const ASSUMPTIONS = [
+  {
+    title: "One form, hardwired",
+    body: "The prototype only fills the Texas DL-14A. Field names and PDF boxes are mapped by hand, so no form discovery or OCR runs at request time.",
+  },
+  {
+    title: "Speech-to-text is the browser's",
+    body: "Recognition runs in Chrome or Edge via the Web Speech API. Accuracy depends on the user's microphone and accent, and Gemini only sees text that has already been transcribed — it cannot recover a word the browser misheard.",
+  },
+  {
+    title: "No speaker diarization",
+    body: "The audio stream carries no speaker labels, so a caseworker speaking in the room is transcribed the same as the applicant. Separating speakers would need a server-side engine such as Google Speech-to-Text or ElevenLabs Scribe.",
+  },
+  {
+    title: "The model suggests, it never decides",
+    body: "Gemini returns values only for fields clearly stated and null for everything else. Anything filler-like, question-like or wrong-shaped for the field is discarded before it reaches the form.",
+  },
+  {
+    title: "Nothing sensitive is spoken",
+    body: "The Social Security number is never asked for out loud; it is typed in the review list. No SSNs, bank, card or routing numbers are captured by voice.",
+  },
+  {
+    title: "No accounts, no server storage",
+    body: "Drafts live in the browser's local storage on that device only. There is no database, no login and no submission — the user downloads the filled PDF and files it through the official channel.",
+  },
+  {
+    title: "Text-to-speech can fall back",
+    body: "Replies are spoken with a Gemini voice streamed from the server; if that is unavailable it quietly falls back to the browser's built-in voice.",
+  },
+  {
+    title: "Not legal or eligibility advice",
+    body: "FormBuddy explains what a field asks for. It does not determine eligibility, complete a submission, or replace a caseworker.",
+  },
+];
+
+
 
 function FlowNode({
   label,
@@ -303,7 +361,66 @@ function ArchitecturePage() {
             <span>Prototype built for the hackathon — demo data only, nothing stored.</span>
           </div>
         </section>
+
+        {/* 4. As built today */}
+        <section aria-labelledby="as-built">
+          <h2 id="as-built" className="mb-4 text-xl font-bold tracking-tight text-foreground">
+            4. As built today
+          </h2>
+          <p className="mb-6 max-w-3xl text-sm text-muted-foreground">
+            The diagram above is the target design. This is the pipeline the hackathon prototype
+            actually runs, end to end, for the Texas DL-14A.
+          </p>
+          <ol className="grid gap-3 md:grid-cols-2">
+            {BUILT_PIPELINE.map((node, index) => {
+              const Icon = node.icon;
+              return (
+                <li
+                  key={node.label}
+                  className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 shadow-sm"
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent">
+                    <Icon className="h-4 w-4 text-primary" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">
+                      {index + 1}. {node.label}
+                    </h3>
+                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                      {node.detail}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+
+        {/* 5. Assumptions & limitations */}
+        <section aria-labelledby="assumptions">
+          <h2 id="assumptions" className="mb-4 text-xl font-bold tracking-tight text-foreground">
+            5. Assumptions and limitations
+          </h2>
+          <p className="mb-6 max-w-3xl text-sm text-muted-foreground">
+            What this prototype takes for granted, and where it deliberately stops.
+          </p>
+          <ul className="grid gap-4 md:grid-cols-2">
+            {ASSUMPTIONS.map((item) => (
+              <li
+                key={item.title}
+                className="flex gap-3 rounded-xl border border-border bg-card p-5 shadow-sm"
+              >
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">{item.title}</h3>
+                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{item.body}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
       </main>
+
     </div>
   );
 }
