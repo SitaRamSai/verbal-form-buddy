@@ -1,32 +1,22 @@
-# Voice-Filled Form
+# Add welcome script to FormBuddy landing page
 
-A single page where you press a mic button, speak naturally, and watch the form fields fill themselves in. You can always type over anything it gets wrong.
+## Goal
+Show the agent's opening script on the app so users know what to expect before starting:
 
-## The form
-A contact / lead capture form:
-- Full name
-- Email
-- Phone
-- Company
-- Reason for reaching out (longer text)
+> "Welcome to FormBuddy. We'll complete the Utility Assistance application together. There are six steps. You can say 'repeat,' 'why do they need this,' 'save for later,' or 'what documents do I need?'"
 
-## How it works for the user
-1. Press "Start talking" and grant microphone access.
-2. Speak freely: "Hi, I'm Ana Reyes, ana@acme.com, 312-555-0142, I work at Acme and I'd like a demo next week."
-3. Live transcript appears under the mic button.
-4. Press stop — fields populate, each newly filled field briefly highlights.
-5. Review, edit anything by hand, submit. A confirmation summary appears.
-6. "Clear and start over" resets everything.
+There is currently no About page — the site is a blank placeholder — so this becomes the first real content on the home page.
 
-Speaking again adds to what's already there rather than wiping it — only fields with new information get updated.
+## Changes
 
-## Look and feel
-Warm, calm, single-column card on a soft neutral background. Big circular mic button with an animated pulse ring while listening. Serif headings paired with a clean sans body — deliberately not a generic blue-gradient SaaS page.
+1. **`src/routes/index.tsx`** — replace the blank placeholder with a simple landing page:
+   - FormBuddy title and one-line description (voice agent that helps fill out a Utility Assistance application).
+   - A "Welcome script" card styled like a chat/transcript bubble containing the exact script text above.
+   - The four voice commands ("repeat", "why do they need this", "save for later", "what documents do I need?") shown as small chips under the script for quick scanning.
+   - Route-specific `head()` with title "FormBuddy — Voice Agent for Utility Assistance" and matching description.
 
-## Technical notes
-- Speech capture: browser Web Speech API (`webkitSpeechRecognition`), client-only, gated behind a hydration check with a clear fallback message on unsupported browsers (notably desktop Safari/Firefox) — those users can type instead.
-- Field extraction: a server function posts the transcript to the Lovable AI Gateway (`google/gemini-2.5-flash`) with a strict JSON schema for the five fields; unknown fields come back null and are left untouched. Handles 429/402 gracefully with a toast.
-- Route: rewrite `src/routes/index.tsx` as the form page with its own `head()` metadata.
-- Components: shadcn input/textarea/button/card + `sonner` toaster mounted in `__root.tsx`.
-- Design tokens added to `src/styles.css`; no hardcoded colors in components.
-- No database — submissions are not stored. Say the word and I'll add saved submissions with a history view.
+2. **`src/routes/__root.tsx`** — update the root title away from the template default so the app is no longer "Lovable App".
+
+## Not included
+- No voice recording, AI, or form logic yet — this is presentation only, matching the request.
+- The broader voice-agent build (six-step flow, mic input, document checklist) stays available as a follow-up if you want it.
