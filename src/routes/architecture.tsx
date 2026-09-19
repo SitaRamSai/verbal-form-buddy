@@ -156,14 +156,6 @@ function FlowNode({
   );
 }
 
-function FlowArrow() {
-  return (
-    <div className="flex items-center justify-center py-1 lg:py-0 lg:px-1" aria-hidden="true">
-      <ArrowRight className="h-4 w-4 rotate-90 text-muted-foreground lg:rotate-0" />
-    </div>
-  );
-}
-
 function ArchitecturePage() {
   return (
     <div className="min-h-screen bg-background px-4 py-8 lg:px-8">
