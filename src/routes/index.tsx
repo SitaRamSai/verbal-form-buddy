@@ -118,15 +118,13 @@ function Index() {
     }
   }, []);
 
-  // Initialize Agent Dialogue on mount
+  // Initialize Agent Dialogue on mount (silent — the agent only speaks once the user starts)
   useEffect(() => {
     const agent = agentRef.current;
-    const initialGreeting = agent.getInitialGreeting();
     setHistory([...agent.history]);
     void updatePdf(agent.values, false);
-    // Voice agent speaks the opening question
-    speak(initialGreeting);
   }, [updatePdf]);
+
 
   // Handle Spoken Input from User (Mic or Simulation)
   const handleSpokenInput = useCallback(
