@@ -87,7 +87,38 @@ export function useSpeechRecognition(onFinalTranscript: (text: string) => void) 
     }
   }, [listening]);
 
-  return { supported, listening, interim, toggle };
+  // Half-duplex: pause the mic while the agent speaks so it never hears itself
+  // (or the user's "mm-hm") and interrupts the question.
+  const wasListeningRef = useRef(false);
+
+  const pause = useCallback(() => {
+    const recognition = recognitionRef.current;
+    if (!recognition) return;
+    wasListeningRef.current = listening;
+    if (listening) {
+      try {
+        recognition.stop();
+      } catch {
+        // already stopped
+      }
+      setListening(false);
+      setInterim("");
+    }
+  }, [listening]);
+
+  const resume = useCallback(() => {
+    const recognition = recognitionRef.current;
+    if (!recognition || !wasListeningRef.current) return;
+    wasListeningRef.current = false;
+    try {
+      recognition.start();
+      setListening(true);
+    } catch {
+      // already started
+    }
+  }, []);
+
+  return { supported, listening, interim, toggle, pause, resume };
 }
 
 function speakWithBrowserVoice(text: string) {
