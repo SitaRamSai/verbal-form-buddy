@@ -129,7 +129,25 @@ function Index() {
   }, [updatePdf]);
 
 
-  // Handle Spoken Input from User (Mic or Simulation)
+  // Mic control lives in the hook; these refs let the agent mute the mic while it talks.
+  const micControlRef = useRef<{ pause: () => void; resume: () => void }>({
+    pause: () => {},
+    resume: () => {},
+  });
+
+  /** Speak with the mic muted, so the agent never hears itself or gets interrupted. */
+  const say = useCallback(async (text: string) => {
+    micControlRef.current.pause();
+    setSpeaking(true);
+    try {
+      await speak(text);
+    } finally {
+      setSpeaking(false);
+      micControlRef.current.resume();
+    }
+  }, []);
+
+  // Handle Spoken Input from User (Mic, keyboard or Simulation)
   const handleSpokenInput = useCallback(
     (spokenText: string) => {
       const agent = agentRef.current;
