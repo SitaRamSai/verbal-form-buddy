@@ -90,6 +90,35 @@ const SIMULATED_CONVERSATION_STEPS = [
   },
 ];
 
+const PROFILE_KEY = "formbuddy-profile";
+
+const PROFILE_FIELDS = [
+  { key: "firstName", label: "First name", autoComplete: "given-name", placeholder: "Carlos" },
+  { key: "lastName", label: "Last name", autoComplete: "family-name", placeholder: "Rodriguez" },
+  {
+    key: "dateOfBirth",
+    label: "Date of birth",
+    autoComplete: "bday",
+    placeholder: "01/15/1982",
+  },
+  {
+    key: "residenceAddress",
+    label: "Street address",
+    autoComplete: "street-address",
+    placeholder: "742 Evergreen Terrace",
+  },
+  { key: "city", label: "City", autoComplete: "address-level2", placeholder: "Austin" },
+  { key: "zipCode", label: "ZIP code", autoComplete: "postal-code", placeholder: "78701" },
+  { key: "phone", label: "Phone", autoComplete: "tel", placeholder: "555-432-8765" },
+  { key: "email", label: "Email", autoComplete: "email", placeholder: "you@example.com" },
+] as const;
+
+type ProfileDraft = Record<string, string>;
+
+const EMPTY_PROFILE: ProfileDraft = Object.fromEntries(PROFILE_FIELDS.map((f) => [f.key, ""]));
+
+
+
 function Index() {
   const agentRef = useRef<DmvVoiceAgent>(new DmvVoiceAgent());
   const [formValues, setFormValues] = useState<DmvFormValues>(EMPTY_DMV_FORM);
