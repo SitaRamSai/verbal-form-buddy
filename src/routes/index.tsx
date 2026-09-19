@@ -154,22 +154,18 @@ function Index() {
     }
   }, []);
 
-  // Re-render the real PDF whenever the collected values change.
+  // Re-fill the real PDF whenever the collected values change.
   useEffect(() => {
     let cancelled = false;
-    let created: string | null = null;
     const timer = setTimeout(() => {
-      fillPdf(values)
-        .then((url) => {
-          if (cancelled) {
-            URL.revokeObjectURL(url);
-            return;
-          }
-          created = url;
+      Promise.all([fillPdf(values, { flatten: true }), fillPdf(values)])
+        .then(([flat, editable]) => {
+          if (cancelled) return;
           setPdfError(null);
+          setPdfBytes(flat);
           setPdfUrl((previous) => {
             if (previous) URL.revokeObjectURL(previous);
-            return url;
+            return pdfBlobUrl(editable);
           });
         })
         .catch(() => {
@@ -179,7 +175,6 @@ function Index() {
     return () => {
       cancelled = true;
       clearTimeout(timer);
-      if (created) URL.revokeObjectURL(created);
     };
   }, [values]);
 
@@ -311,20 +306,13 @@ function Index() {
               </span>
             </div>
 
-            <div className="overflow-hidden rounded-lg border border-border bg-muted">
+            <div className="max-h-[760px] overflow-auto rounded-lg border border-border bg-muted p-3">
               {pdfError ? (
                 <p className="p-6 text-sm text-muted-foreground">{pdfError}</p>
-              ) : pdfUrl ? (
-                <iframe
-                  key={pdfUrl}
-                  src={`${pdfUrl}#toolbar=0&view=FitH`}
-                  title="Utility Assistance Application PDF"
-                  className="h-[720px] w-full bg-background"
-                />
               ) : (
-                <p className="p-6 text-sm text-muted-foreground">
-                  Loading the application form…
-                </p>
+                <div className="shadow-sm">
+                  <PdfPreview bytes={pdfBytes} />
+                </div>
               )}
             </div>
 
