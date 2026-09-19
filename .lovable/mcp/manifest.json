@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "sdk_version": "2.3.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "none"
+  },
+  "mcp": {
+    "server": {
+      "name": "form-filler-friend",
+      "version": "0.1.0",
+      "title": "Form Filler Friend"
+    },
+    "tools": [
+      {
+        "name": "list_form_fields",
+        "title": "List application fields",
+        "description": "List the fields of the Utility Assistance Application (Form UA-6) that FormBuddy can fill.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "parse_spoken_answers",
+        "title": "Parse spoken answers",
+        "description": "Turn a spoken or typed sentence (for example \"my name is Maria Lopez and my monthly income is twelve hundred dollars\") into Utility Assistance Application field values. Also detects the voice commands repeat, why, save and documents.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "transcript": {
+              "type": "string",
+              "minLength": 1,
+              "description": "What the applicant said, in plain language."
+            }
+          },
+          "required": [
+            "transcript"
+          ]
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}

@@ -42,7 +42,7 @@ export function PdfPreview({ bytes }: Props) {
 
       const context = canvas.getContext("2d");
       if (!context) return;
-      const task = page.render({ canvas, canvasContext: context, viewport });
+      const task = page.render({ canvasContext: context, viewport });
       renderTaskRef.current = task;
       try {
         await task.promise;
