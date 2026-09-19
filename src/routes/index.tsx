@@ -389,10 +389,66 @@ function Index() {
                   aria-hidden="true"
                 />
                 <p className="text-sm leading-relaxed text-foreground">
-                  “{WELCOME_SCRIPT}”
+                  {stage === "welcome"
+                    ? `“${GREETING}”`
+                    : stage === "choosing"
+                      ? `“${FORM_QUESTION}”`
+                      : currentField
+                        ? `“${FIELD_QUESTIONS[currentField]}”`
+                        : "“That's everything I need. Please review your answers below, then download the form.”"}
                 </p>
               </div>
             </div>
+
+            {stage === "welcome" && (
+              <button
+                type="button"
+                onClick={startConversation}
+                className="rounded-md border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+              >
+                Start
+              </button>
+            )}
+
+            {stage === "choosing" && (
+              <ul className="flex flex-col gap-2">
+                {AVAILABLE_FORMS.map((form) => (
+                  <li key={form.id}>
+                    <button
+                      type="button"
+                      onClick={form.available ? chooseForm : undefined}
+                      disabled={!form.available}
+                      className="w-full rounded-lg border border-border bg-background px-4 py-3 text-left transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <span className="block text-sm font-medium text-foreground">
+                        {form.name}
+                      </span>
+                      <span className="block text-xs text-muted-foreground">
+                        {form.code}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {stage === "filling" && currentField && (
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-primary bg-accent px-4 py-3">
+                <p className="text-sm font-medium text-foreground">
+                  {FIELD_LABELS[currentField]}
+                </p>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSkipped((current) => new Set(current).add(currentField))
+                  }
+                  className="shrink-0 rounded-md border border-input bg-background px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+                >
+                  Skip
+                </button>
+              </div>
+            )}
+
 
             <div className="flex flex-col items-center gap-3 py-2">
               <button
