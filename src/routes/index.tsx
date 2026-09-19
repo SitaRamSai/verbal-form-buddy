@@ -255,6 +255,31 @@ function Index() {
     [typedAnswer, handleSpokenInput],
   );
 
+  // "About you" card — typed once, then the agent only asks what's still missing.
+  const handleProfileSubmit = useCallback(
+    (event: React.FormEvent) => {
+      event.preventDefault();
+      try {
+        localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+      } catch {
+        /* saving is a convenience only */
+      }
+      const decision = agentRef.current.seedProfile(profile);
+      setFormValues({ ...decision.updatedValues });
+      setHistory([...agentRef.current.history]);
+      setCurrentStage(decision.nextStage);
+      setAgentReasoning(decision.decisionReasoning);
+      void updatePdf(decision.updatedValues, flattenPdf);
+      setProfileDone(true);
+      startedRef.current = true;
+      void say(decision.agentUtterance).then(() => {
+        if (!listening) toggle();
+      });
+    },
+    [profile, updatePdf, flattenPdf, say, listening, toggle],
+  );
+
+
 
   const handleDownload = async () => {
     const bytes = await createTexasDmvPdf(formValues, { flatten: flattenPdf });
