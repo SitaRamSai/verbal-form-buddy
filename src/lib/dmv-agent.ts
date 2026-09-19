@@ -104,6 +104,11 @@ export class DmvVoiceAgent {
   public values: DmvFormValues;
   public history: AgentDialogueTurn[] = [];
   public currentStage: InterviewStage = "GREETING_AND_TYPE";
+  /** Fields the user could not or would not answer; treated as satisfied so we move on. */
+  private skipped = new Set<string>();
+  /** Which fields the last question targeted, and how many times we've asked about them. */
+  private lastTargets: string[] = [];
+  private askCount = 0;
 
   constructor(initialValues?: Partial<DmvFormValues>) {
     this.values = { ...EMPTY_DMV_FORM, ...(initialValues || {}) };
