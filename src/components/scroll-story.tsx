@@ -52,6 +52,7 @@ function Reveal({
   return (
     <Tag
       ref={ref as never}
+      data-shown={shown ? "true" : undefined}
       style={{ transitionDelay: `${delay}ms` }}
       className={`motion-safe:translate-y-4 motion-safe:opacity-0 motion-safe:transition-all motion-safe:duration-700 motion-safe:ease-out ${
         shown ? "motion-safe:!translate-y-0 motion-safe:!opacity-100" : ""
@@ -288,7 +289,7 @@ export function ScrollStory({ appAnchorId }: { appAnchorId: string }) {
                 </div>
                 <p className="mt-3 text-base leading-relaxed text-muted-foreground">{step.body}</p>
                 <span
-                  className="mt-5 block h-0.5 w-full origin-left scale-x-0 bg-primary transition-transform duration-700 motion-reduce:scale-x-100 [li.motion-safe\\:\\!opacity-100_&]:scale-x-100"
+                  className="mt-5 block h-0.5 w-full origin-left scale-x-0 bg-primary transition-transform duration-700 [[data-shown]_&]:scale-x-100 motion-reduce:scale-x-100"
                   aria-hidden="true"
                 />
               </div>
