@@ -93,6 +93,7 @@ function Index() {
   const [showDocuments, setShowDocuments] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const lastFilledRef = useRef<(keyof FormValues)[]>([]);
 
