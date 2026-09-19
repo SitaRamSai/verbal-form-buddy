@@ -143,6 +143,50 @@ const FORM_FIELDS: { field: keyof FormValues; type: string; placeholder: string;
   { field: "emergencyAddress", type: "text", placeholder: "e.g. 10 Oak Ave, Austin", wide: true },
 ];
 
+const QUESTIONS: Record<keyof FormValues, string> = {
+  firstName: "What is your first name?",
+  middleName: "What is your middle name? Say 'skip' if you don't have one.",
+  lastName: "What is your last name?",
+  dateOfBirth: "What is your date of birth?",
+  ssn: "For your safety, type your Social Security number in the review list instead of saying it out loud. Say 'skip' to continue.",
+  heightFeet: "How tall are you, in feet and inches?",
+  heightInches: "And how many inches on top of that?",
+  weight: "What is your weight in pounds?",
+  placeOfBirthCity: "Which city were you born in?",
+  placeOfBirthState: "And which state or country were you born in?",
+  fathersLastName: "What is your father's last name?",
+  mothersMaidenName: "What is your mother's maiden name?",
+  residenceAddress: "What is the street address where you live?",
+  city: "Which city do you live in?",
+  state: "Which state?",
+  zipCode: "What is your ZIP code?",
+  county: "Which county do you live in?",
+  phone: "What is your primary phone number?",
+  cellPhone: "What is your cell phone number?",
+  email: "What is your email address?",
+  emergencyName: "Who should we list as your emergency contact?",
+  emergencyPhone: "What is their phone number?",
+  emergencyAddress: "What is their address?",
+};
+
+/** Fields a browser or saved profile can autofill before the voice questions start. */
+const BASIC_FIELDS: { field: keyof FormValues; autoComplete: string; placeholder: string; wide?: boolean }[] = [
+  { field: "firstName", autoComplete: "given-name", placeholder: "Maria" },
+  { field: "middleName", autoComplete: "additional-name", placeholder: "Elena" },
+  { field: "lastName", autoComplete: "family-name", placeholder: "Lopez" },
+  { field: "dateOfBirth", autoComplete: "bday", placeholder: "01/05/1985" },
+  { field: "residenceAddress", autoComplete: "street-address", placeholder: "42 Elm Street", wide: true },
+  { field: "city", autoComplete: "address-level2", placeholder: "Austin" },
+  { field: "state", autoComplete: "address-level1", placeholder: "TX" },
+  { field: "zipCode", autoComplete: "postal-code", placeholder: "78701" },
+  { field: "phone", autoComplete: "tel", placeholder: "(555) 123-4567" },
+  { field: "email", autoComplete: "email", placeholder: "maria@example.com" },
+];
+
+const PROFILE_KEY = "formbuddy-profile";
+
+
+
 function Index() {
   const [values, setValues] = useState<FormValues>(EMPTY_FORM);
   const [status, setStatus] = useState(WELCOME_SCRIPT);
