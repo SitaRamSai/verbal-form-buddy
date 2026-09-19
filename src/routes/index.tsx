@@ -10,6 +10,7 @@ import {
   MicOff,
   MessageCircle,
   ShieldCheck,
+  UserRound,
   Volume2,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
