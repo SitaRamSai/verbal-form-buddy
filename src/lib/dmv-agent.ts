@@ -104,6 +104,11 @@ export class DmvVoiceAgent {
   public values: DmvFormValues;
   public history: AgentDialogueTurn[] = [];
   public currentStage: InterviewStage = "GREETING_AND_TYPE";
+  /** Fields the user could not or would not answer; treated as satisfied so we move on. */
+  private skipped = new Set<string>();
+  /** Which fields the last question targeted, and how many times we've asked about them. */
+  private lastTargets: string[] = [];
+  private askCount = 0;
 
   constructor(initialValues?: Partial<DmvFormValues>) {
     this.values = { ...EMPTY_DMV_FORM, ...(initialValues || {}) };
@@ -418,78 +423,109 @@ export class DmvVoiceAgent {
     let decisionReasoning = "";
     let nextStage: InterviewStage = this.currentStage;
     let isComplete = false;
+    let targets: string[] = [];
 
+    // A field counts as handled once it has a value OR the user skipped past it.
+    const done = (key: keyof DmvFormValues): boolean => {
+      if (this.skipped.has(key as string)) return true;
+      const v = this.values[key];
+      if (typeof v === "boolean") return true;
+      return v !== null && v !== undefined && String(v).trim() !== "";
+    };
+    const missing = (keys: (keyof DmvFormValues)[]) => keys.filter((k) => !done(k));
 
-    // Evaluate Stage Progression
-    const hasAppType = !!(this.values.appType && this.values.transactionType);
-    const hasIdentity = !!(
-      this.values.firstName &&
-      this.values.lastName &&
-      this.values.dateOfBirth &&
-      this.values.sex
-    );
-    const hasPhysical = !!(
-      this.values.heightFt &&
-      this.values.weightLbs &&
-      this.values.eyeColor &&
-      this.values.hairColor
-    );
-    const hasContact = !!(
-      this.values.residenceAddress &&
-      this.values.city &&
-      this.values.zipCode &&
-      this.values.phone
-    );
-    const hasEligibility = this.values.isCitizen !== null && this.values.organDonor !== null;
+    const missingType = missing(["appType", "transactionType"]);
+    const missingIdentity = missing(["firstName", "lastName", "dateOfBirth", "sex"]);
+    const missingPhysicalKeys = missing(["heightFt", "weightLbs", "eyeColor", "hairColor"]);
+    const missingContactKeys = missing(["residenceAddress", "city", "zipCode", "phone"]);
+    const missingEligibility = missing(["isCitizen", "organDonor"]);
 
-    if (!hasAppType) {
+    if (missingType.length) {
       nextStage = "GREETING_AND_TYPE";
+      targets = missingType as string[];
       agentUtterance =
         "Are you applying for a Driver License or an ID Card, and is it an original application or renewal?";
       decisionReasoning =
         "Application Type / Transaction missing; prompting for target credential.";
-    } else if (!hasIdentity) {
+    } else if (missingIdentity.length) {
       nextStage = "IDENTITY";
-      if (!this.values.firstName || !this.values.lastName) {
-        agentUtterance = `Got it, a ${this.values.transactionType} ${this.values.appType}. What is your legal first and last name?`;
+      targets = missingIdentity as string[];
+      if (!done("firstName") || !done("lastName")) {
+        agentUtterance = `What is your legal first and last name?`;
         decisionReasoning = "Name not yet captured; requesting legal name.";
-      } else if (!this.values.dateOfBirth) {
-        agentUtterance = `Thanks, ${this.values.firstName}. What is your date of birth, and biological sex?`;
-        decisionReasoning = "Name captured; requesting Date of Birth and Sex.";
+      } else if (!done("dateOfBirth")) {
+        agentUtterance = `Thanks, ${this.values.firstName}. What is your date of birth?`;
+        decisionReasoning = "Name captured; requesting Date of Birth.";
       } else {
-        agentUtterance = `Thank you. What is your biological sex (Male or Female)?`;
+        agentUtterance = `Thank you. What is your biological sex, male or female?`;
         decisionReasoning = "Sex missing; asking for sex designation.";
       }
-    } else if (!hasPhysical) {
+    } else if (missingPhysicalKeys.length) {
       nextStage = "PHYSICAL";
-      const missingPhysical = [];
-      if (!this.values.heightFt) missingPhysical.push("height in feet and inches");
-      if (!this.values.weightLbs) missingPhysical.push("approximate weight in pounds");
-      if (!this.values.eyeColor) missingPhysical.push("eye color");
-      if (!this.values.hairColor) missingPhysical.push("hair color");
-
-      agentUtterance = `Next, for your physical description on the card: could you share your ${missingPhysical.join(", ")}?`;
-      decisionReasoning = `Physical attributes missing (${missingPhysical.join(", ")}); prompting for card descriptors.`;
-    } else if (!hasContact) {
+      targets = missingPhysicalKeys as string[];
+      const labels: Record<string, string> = {
+        heightFt: "height in feet and inches",
+        weightLbs: "approximate weight in pounds",
+        eyeColor: "eye color",
+        hairColor: "hair color",
+      };
+      const wanted = missingPhysicalKeys.map((k) => labels[k as string] ?? (k as string));
+      agentUtterance = `Next, for your physical description on the card: could you share your ${wanted.join(", ")}?`;
+      decisionReasoning = `Physical attributes missing (${wanted.join(", ")}).`;
+    } else if (missingContactKeys.length) {
       nextStage = "CONTACT";
-      const missingContact = [];
-      if (!this.values.residenceAddress) missingContact.push("residential street address");
-      if (!this.values.city) missingContact.push("city");
-      if (!this.values.zipCode) missingContact.push("zip code");
-      if (!this.values.phone) missingContact.push("contact phone number");
-
-      agentUtterance = `Great. What is your Texas residential address (including street, city, and zip code), and your primary phone number?`;
-      decisionReasoning = `Contact/address missing; driving towards residence and phone.`;
-    } else if (!hasEligibility) {
+      targets = missingContactKeys as string[];
+      const labels: Record<string, string> = {
+        residenceAddress: "residential street address",
+        city: "city",
+        zipCode: "zip code",
+        phone: "contact phone number",
+      };
+      const wanted = missingContactKeys.map((k) => labels[k as string] ?? (k as string));
+      agentUtterance = `Could you give me your ${wanted.join(", ")}?`;
+      decisionReasoning = `Contact/address missing (${wanted.join(", ")}).`;
+    } else if (missingEligibility.length) {
       nextStage = "ELIGIBILITY";
-      agentUtterance = `Almost finished! Texas DPS requires these final statutory questions: Are you a U.S. citizen? Would you like to register to vote? And would you like to register as an organ donor with Donate Life Texas?`;
-      decisionReasoning =
-        "Eligibility and statutory questions pending; asking citizen, voting, and donor questions.";
+      targets = missingEligibility as string[];
+      agentUtterance = `Almost finished! Are you a U.S. citizen, and would you like to register as an organ donor with Donate Life Texas?`;
+      decisionReasoning = "Eligibility and statutory questions pending.";
     } else {
       nextStage = "COMPLETED";
       isComplete = true;
-      agentUtterance = `All required sections for Form DL-14A are complete! I have verified your personal information, physical descriptors, Texas address, and statutory answers. Your official Texas DPS Driver License application is ready for signature and PDF download.`;
-      decisionReasoning = "All 29 keys satisfied. Form is complete and sealed.";
+      agentUtterance = `All required sections for Form DL-14A are complete! Your Texas DPS Driver License application is ready for signature and PDF download.`;
+      decisionReasoning = "All required keys satisfied. Form is complete.";
+    }
+
+    // --- Anti-repeat: never ask the identical question twice in a row unchanged ---
+    if (!isComplete) {
+      const sameQuestion =
+        targets.length > 0 &&
+        this.lastTargets.length === targets.length &&
+        targets.every((t) => this.lastTargets.includes(t));
+
+      if (sameQuestion) {
+        this.askCount += 1;
+      } else {
+        this.askCount = 1;
+        this.lastTargets = targets;
+      }
+
+      if (this.askCount === 2) {
+        agentUtterance = `Sorry, I didn't catch that. ${agentUtterance}`;
+        decisionReasoning += " Re-asking once after no new information.";
+      } else if (this.askCount >= 3) {
+        // Move on rather than loop: mark these fields skipped and re-decide.
+        for (const t of targets) this.skipped.add(t);
+        this.askCount = 0;
+        this.lastTargets = [];
+        this.history.push({
+          speaker: "agent",
+          text: "No problem, let's come back to that later. You can also type it in the review list.",
+          timestamp: new Date().toLocaleTimeString(),
+          decisionNote: `Skipping ${targets.join(", ")} after three attempts.`,
+        });
+        return this.decide(extractedKeyList);
+      }
     }
 
     this.currentStage = nextStage;
