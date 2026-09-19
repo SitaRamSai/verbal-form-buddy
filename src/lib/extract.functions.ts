@@ -54,7 +54,9 @@ export const extractFields = createServerFn({ method: "POST" })
       const result = streamText({
         model: gateway("google/gemini-3.8-flash"),
         system: SYSTEM,
-        prompt: data.transcript,
+        prompt: data.question
+          ? `Question just asked${data.field ? ` (field: ${data.field})` : ""}: "${data.question}"\nSpeaker said: "${data.transcript}"`
+          : data.transcript,
         output: Output.object({ schema: ExtractedSchema }),
       });
 
