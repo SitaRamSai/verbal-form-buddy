@@ -14,4 +14,4 @@
 - [x] "Architecture" nav item on the app page + separate /architecture page: system flow diagram (2 rows desktop / vertical mobile), service map cards, agent workflow (drafted by Lovable — user may supply exact wording)
 
 ## Voice
-- [ ] Fix overlapping TTS playback (echo from multiple simultaneous speak() calls)
+- [x] Fix overlapping TTS playback (echo from multiple simultaneous speak() calls)
