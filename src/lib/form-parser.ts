@@ -145,11 +145,10 @@ function cleanName(value: string): string {
   return trimmed
     .split(/\s+/)
     .filter(Boolean)
-    .map((word, index) =>
-      index > 0 && connectives.has(word.toLowerCase())
-        ? word.toLowerCase()
-        : word[0].toUpperCase() + word.slice(1)
-    )
+    .map((word, index) => {
+      if (index > 0 && connectives.has(word.toLowerCase())) return word.toLowerCase();
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
     .join(" ");
 }
 
@@ -258,7 +257,7 @@ export function parseTranscript(transcript: string): Partial<FormValues> {
     for (const pattern of rule.patterns) {
       const match = normalized.match(pattern);
       if (!match) continue;
-      const value = rule.clean(match[1]);
+      const value = rule.clean(match[1] ?? "");
       if (value) {
         filled[rule.field] = value;
         break;
