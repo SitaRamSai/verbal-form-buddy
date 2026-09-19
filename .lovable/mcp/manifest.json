@@ -47,7 +47,9 @@
               "description": "What the applicant said, in plain language."
             }
           },
-          "required": ["transcript"]
+          "required": [
+            "transcript"
+          ]
         },
         "outputSchema": null
       }
