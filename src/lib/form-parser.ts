@@ -432,3 +432,54 @@ export function detectCommand(transcript: string): VoiceCommand | null {
   if (/\brepeat\b|\bsay that again\b|\bcome again\b/.test(t)) return "repeat";
   return null;
 }
+
+/**
+ * Guard for guided mode: is this raw utterance a believable answer to `field`?
+ * Speech-to-text often returns filler, side-talk or a misheard question — those
+ * must never be dropped into the form verbatim.
+ */
+const QUESTION_LIKE =
+  /\b(why|what|what's|how|who|when|where|which|sorry|pardon|huh|hello|hey|okay|um+|uh+)\b|\b(are|can|do|did|does|is|could|would) (you|we|they|i)\b/i;
+
+export function isPlausibleAnswer(field: keyof FormValues, raw: string): boolean {
+  const text = raw.trim().replace(/[.!?]+$/, "");
+  if (!text) return false;
+  const words = text.split(/\s+/);
+  if (words.length > 6) return false;
+  if (QUESTION_LIKE.test(text)) return false;
+
+  const hasDigit = /\d/.test(text) || /\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand)\b/i.test(text);
+
+  switch (field) {
+    case "lastName":
+    case "firstName":
+    case "middleName":
+    case "fathersLastName":
+    case "mothersMaidenName":
+    case "emergencyName":
+    case "placeOfBirthCity":
+    case "city":
+    case "county":
+      return /^[A-Za-z][A-Za-z .'’-]*$/.test(text) && words.length <= 4;
+    case "state":
+    case "placeOfBirthState":
+      return /^[A-Za-z][A-Za-z .]*$/.test(text) && words.length <= 3;
+    case "heightFeet":
+    case "heightInches":
+    case "weight":
+    case "zipCode":
+    case "ssn":
+    case "dateOfBirth":
+    case "phone":
+    case "cellPhone":
+    case "emergencyPhone":
+      return hasDigit;
+    case "email":
+      return /@/.test(text) || /\bat\b/i.test(text);
+    case "residenceAddress":
+    case "emergencyAddress":
+      return hasDigit || words.length >= 2;
+    default:
+      return true;
+  }
+}

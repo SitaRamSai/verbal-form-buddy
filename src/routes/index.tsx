@@ -18,6 +18,7 @@ import {
   EMPTY_FORM,
   FIELD_LABELS,
   detectCommand,
+  isPlausibleAnswer,
   parseTranscript,
   type FormValues,
 } from "@/lib/form-parser";
@@ -54,25 +55,6 @@ const WELCOME_SCRIPT =
 const INTRO_GREETING =
   "Hi, I'm FormBuddy. I help you finish government forms by voice, one question at a time.";
 
-const FORM_QUESTION = "Which form would you like to work on today?";
-
-const FORM_OPTIONS: { label: string; note: string; available: boolean }[] = [
-  {
-    label: "Texas Driver License / ID Card — Form DL-14A",
-    note: "Texas DPS · ready to fill",
-    available: true,
-  },
-  {
-    label: "Utility Assistance application",
-    note: "Coming soon",
-    available: false,
-  },
-  {
-    label: "Upload my own form",
-    note: "Coming soon",
-    available: false,
-  },
-];
 
 const VOICE_COMMANDS = [
   "repeat",
@@ -197,7 +179,7 @@ function Index() {
   const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [aiThinking, setAiThinking] = useState(false);
-  const [stage, setStage] = useState<"welcome" | "choose" | "basics" | "filling">("welcome");
+  const [stage, setStage] = useState<"welcome" | "basics" | "filling">("welcome");
   const [guided, setGuided] = useState(true);
   const [currentField, setCurrentField] = useState<keyof FormValues | null>(null);
   const [hasProfile, setHasProfile] = useState(false);
@@ -270,11 +252,12 @@ function Index() {
     const keys = Object.keys(parsed) as (keyof FormValues)[];
     let merged: FormValues = { ...values, ...parsed };
 
-    // In guided mode, a bare answer belongs to the question just asked.
+    // In guided mode, a bare answer belongs to the question just asked — but only
+    // if it actually looks like an answer. Misheard chatter must never be stored.
     const current = currentFieldRef.current;
     if (guidedRef.current && current && keys.length === 0) {
       const bare = text.trim().replace(/[.!?]+$/, "");
-      if (bare && bare.split(/\s+/).length <= 10) {
+      if (isPlausibleAnswer(current, bare)) {
         merged = { ...merged, [current]: bare };
       }
     }
@@ -293,7 +276,12 @@ function Index() {
 
     // Ask the AI to catch anything the quick rules missed.
     setAiThinking(true);
-    extractFields({ data: { transcript: text } })
+    extractFields({
+      data: {
+        transcript: text,
+        ...(current ? { field: FIELD_LABELS[current], question: QUESTIONS[current] } : {}),
+      },
+    })
       .then((result) => {
         const extra = Object.entries(result.values).filter(
           ([field, value]) => value && !merged[field as keyof FormValues],
@@ -435,13 +423,11 @@ function Index() {
                 <p className="text-sm leading-relaxed text-foreground">
                   {stage === "welcome"
                     ? `“${INTRO_GREETING}”`
-                    : stage === "choose"
-                      ? `“${FORM_QUESTION}”`
-                      : stage === "basics"
-                        ? "“Let's start with your basic info. Fill it in or use your browser's autofill — I'll ask about the rest by voice.”"
-                        : guided && currentField
-                          ? `“${QUESTIONS[currentField]}”`
-                          : `“${WELCOME_SCRIPT}”`}
+                    : stage === "basics"
+                      ? "“Let's start with your basic info. Fill it in or use your browser's autofill — I'll ask about the rest by voice.”"
+                      : guided && currentField
+                        ? `“${QUESTIONS[currentField]}”`
+                        : `“${WELCOME_SCRIPT}”`}
                 </p>
               </div>
             </div>
@@ -450,9 +436,11 @@ function Index() {
               <button
                 type="button"
                 onClick={() => {
-                  setStage("choose");
-                  setStatus(FORM_QUESTION);
-                  speak(`${INTRO_GREETING} ${FORM_QUESTION}`);
+                  setStage("basics");
+                  const line =
+                    "Let's start with your basic info. Fill it in or use your browser's autofill, then we'll continue by voice.";
+                  setStatus(line);
+                  speak(`${INTRO_GREETING} ${line}`);
                 }}
                 className="rounded-md bg-primary px-4 py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
               >
@@ -460,34 +448,6 @@ function Index() {
               </button>
             )}
 
-            {stage === "choose" && (
-              <ul className="flex flex-col gap-2">
-                {FORM_OPTIONS.map((option) => (
-                  <li key={option.label}>
-                    <button
-                      type="button"
-                      disabled={!option.available}
-                      onClick={() => {
-                        setStage("basics");
-                        const line =
-                          "Let's start with your basic info. Fill it in or use your browser's autofill, then we'll continue by voice.";
-                        setStatus(line);
-                        speak(line);
-                      }}
-                      className={
-                        "w-full rounded-lg border p-3 text-left transition-colors " +
-                        (option.available
-                          ? "border-border bg-background text-foreground hover:bg-accent"
-                          : "cursor-not-allowed border-border bg-muted text-muted-foreground opacity-70")
-                      }
-                    >
-                      <span className="block text-sm font-medium">{option.label}</span>
-                      <span className="block text-xs text-muted-foreground">{option.note}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
 
             {stage === "basics" && (
               <div className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4">
