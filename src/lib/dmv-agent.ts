@@ -363,11 +363,11 @@ export class DmvVoiceAgent {
       if (typeof raw === "string") {
         const value = raw.trim();
         if (value && !current) {
-          (this.values as Record<string, unknown>)[field] = value;
+          (this.values as unknown as Record<string, unknown>)[field] = value;
           filled.push(field);
         }
       } else if (typeof raw === "boolean" && current === null) {
-        (this.values as Record<string, unknown>)[field] = raw;
+        (this.values as unknown as Record<string, unknown>)[field] = raw;
         filled.push(field);
       }
     }

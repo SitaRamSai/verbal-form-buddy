@@ -143,7 +143,7 @@ function Index() {
 
       // 2. AI pass (Gemini Flash) fills whatever the rules missed in rambling speech.
       setAiThinking(true);
-      void extractDmvFields({ transcript: spokenText })
+      void extractDmvFields({ data: { transcript: spokenText } })
         .then((result) => {
           if (Object.keys(result.values).length === 0) {
             speak(decision.agentUtterance);
