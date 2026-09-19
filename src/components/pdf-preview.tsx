@@ -11,11 +11,14 @@ export function PdfPreview({ bytes }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
 
+  const renderTaskRef = useRef<{ cancel: () => void } | null>(null);
+  const queueRef = useRef<Promise<unknown>>(Promise.resolve());
+
   useEffect(() => {
     if (!bytes) return;
     let cancelled = false;
 
-    (async () => {
+    const run = async () => {
       const pdfjs = await import("pdfjs-dist");
       const workerUrl = (
         await import("pdfjs-dist/build/pdf.worker.min.mjs?url")
@@ -39,15 +42,30 @@ export function PdfPreview({ bytes }: Props) {
 
       const context = canvas.getContext("2d");
       if (!context) return;
-      await page.render({ canvas, canvasContext: context, viewport }).promise;
-      if (!cancelled) setReady(true);
-    })().catch((e) => {
+      const task = page.render({ canvas, canvasContext: context, viewport });
+      renderTaskRef.current = task;
+      try {
+        await task.promise;
+      } catch (err) {
+        if ((err as { name?: string })?.name === "RenderingCancelledException") return;
+        throw err;
+      }
+      if (!cancelled) {
+        setError(null);
+        setReady(true);
+      }
+    };
+
+    // Serialise renders: one canvas cannot handle two render passes at once.
+    renderTaskRef.current?.cancel();
+    queueRef.current = queueRef.current.then(run).catch((e) => {
       console.error("pdf-preview", e);
       if (!cancelled) setError("Couldn't display the application PDF.");
     });
 
     return () => {
       cancelled = true;
+      renderTaskRef.current?.cancel();
     };
   }, [bytes]);
 
