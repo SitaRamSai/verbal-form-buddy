@@ -345,11 +345,13 @@ function Index() {
                 )}
               </button>
               <p className="text-xs font-medium text-muted-foreground">
-                {aiThinking
-                  ? "Understanding what you said…"
-                  : listening
-                    ? "Listening… speak naturally to the agent."
-                    : "Tap mic to answer the agent aloud."}
+                {speaking
+                  ? "Agent is speaking… mic is muted so it won't interrupt you."
+                  : aiThinking
+                    ? "Understanding what you said…"
+                    : listening
+                      ? "Listening… speak naturally to the agent."
+                      : "Tap mic to answer the agent aloud, or type below."}
               </p>
 
               {interim && (
@@ -358,6 +360,29 @@ function Index() {
                 </p>
               )}
             </div>
+
+            {/* Keyboard answer */}
+            <form onSubmit={handleTypedSubmit} className="flex items-center gap-2">
+              <label htmlFor="typed-answer" className="sr-only">
+                Type your answer
+              </label>
+              <input
+                id="typed-answer"
+                type="text"
+                value={typedAnswer}
+                onChange={(event) => setTypedAnswer(event.target.value)}
+                placeholder="Or type your answer here…"
+                className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+              <button
+                type="submit"
+                disabled={!typedAnswer.trim()}
+                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <SendHorizonal className="h-4 w-4" aria-hidden="true" />
+                Send
+              </button>
+            </form>
 
             {/* Conversational Dialogue Log */}
             <div className="flex flex-col gap-2">
