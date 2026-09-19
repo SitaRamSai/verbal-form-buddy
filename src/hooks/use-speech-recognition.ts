@@ -36,11 +36,12 @@ export function useSpeechRecognition(onFinalTranscript: (text: string) => void) 
       let interimText = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
+        if (!result) continue;
         if (result.isFinal) {
-          const text = result[0].transcript.trim();
+          const text = result[0]?.transcript.trim() ?? "";
           if (text) callbackRef.current(text);
         } else {
-          interimText += result[0].transcript;
+          interimText += result[0]?.transcript ?? "";
         }
       }
       setInterim(interimText);
