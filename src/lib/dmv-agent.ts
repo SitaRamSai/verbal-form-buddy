@@ -347,11 +347,53 @@ export class DmvVoiceAgent {
       extractedFields: extractedKeyList,
     });
 
+    return this.decide(extractedKeyList);
+  }
+
+  /**
+   * Merges values produced by the AI extractor, filling only fields the rules left empty,
+   * then re-runs the decision loop so the next question reflects everything captured.
+   */
+  public applyExtractedValues(partial: Record<string, unknown>): AgentDecisionResult {
+    const filled: string[] = [];
+    for (const [key, raw] of Object.entries(partial)) {
+      if (!(key in this.values)) continue;
+      const field = key as keyof DmvFormValues;
+      const current = this.values[field];
+      if (typeof raw === "string") {
+        const value = raw.trim();
+        if (value && !current) {
+          (this.values as unknown as Record<string, unknown>)[field] = value;
+          filled.push(field);
+        }
+      } else if (typeof raw === "boolean" && current === null) {
+        (this.values as unknown as Record<string, unknown>)[field] = raw;
+        filled.push(field);
+      }
+    }
+
+    // Replace the agent turn produced by the rules pass so the log shows one question.
+    if (this.history.length > 0 && this.history[this.history.length - 1]!.speaker === "agent") {
+      this.history.pop();
+    }
+    const lastUserTurn = [...this.history].reverse().find((t) => t.speaker === "user");
+    if (lastUserTurn && filled.length > 0) {
+      lastUserTurn.extractedFields = Array.from(
+        new Set([...(lastUserTurn.extractedFields ?? []), ...filled]),
+      );
+    }
+
+    return this.decide(filled);
+  }
+
+  /** Decides what to ask next based on everything captured so far. */
+  private decide(extractedKeyList: string[]): AgentDecisionResult {
     // --- 2. Autonomous Decision Strategy ---
     let agentUtterance = "";
     let decisionReasoning = "";
     let nextStage: InterviewStage = this.currentStage;
     let isComplete = false;
+
 
     // Evaluate Stage Progression
     const hasAppType = !!(this.values.appType && this.values.transactionType);

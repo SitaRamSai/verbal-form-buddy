@@ -30,6 +30,7 @@ import {
   type InterviewStage,
 } from "@/lib/dmv-agent";
 import { createTexasDmvPdf, createDmvPdfBlobUrl, downloadDmvPdf } from "@/lib/dmv-pdf-service";
+import { extractDmvFields } from "@/lib/extract-dmv.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -100,6 +101,8 @@ function Index() {
   const [flattenPdf, setFlattenPdf] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [viewMode, setViewMode] = useState<"form" | "pdf">("pdf");
+  const [aiThinking, setAiThinking] = useState(false);
+
 
   // Refresh PDF when values or flatten toggle changes
   const updatePdf = useCallback(async (values: DmvFormValues, flatten: boolean) => {
@@ -118,37 +121,63 @@ function Index() {
     }
   }, []);
 
-  // Initialize Agent Dialogue on mount
+  // Initialize Agent Dialogue on mount (silent — the agent only speaks once the user starts)
   useEffect(() => {
     const agent = agentRef.current;
-    const initialGreeting = agent.getInitialGreeting();
     setHistory([...agent.history]);
     void updatePdf(agent.values, false);
-    // Voice agent speaks the opening question
-    speak(initialGreeting);
   }, [updatePdf]);
+
 
   // Handle Spoken Input from User (Mic or Simulation)
   const handleSpokenInput = useCallback(
     (spokenText: string) => {
       const agent = agentRef.current;
+      // 1. Instant rule pass so the form reacts immediately.
       const decision = agent.processSpokenInput(spokenText);
-
       setFormValues({ ...decision.updatedValues });
       setHistory([...agent.history]);
       setCurrentStage(decision.nextStage);
       setAgentReasoning(decision.decisionReasoning);
-
-      // Autonomous agent speaks the next utterance aloud
-      speak(decision.agentUtterance);
-
-      // Update the live PDF
       void updatePdf(decision.updatedValues, flattenPdf);
+
+      // 2. AI pass (Gemini Flash) fills whatever the rules missed in rambling speech.
+      setAiThinking(true);
+      void extractDmvFields({ data: { transcript: spokenText } })
+        .then((result) => {
+          if (Object.keys(result.values).length === 0) {
+            speak(decision.agentUtterance);
+            return;
+          }
+          const merged = agent.applyExtractedValues(result.values);
+          setFormValues({ ...merged.updatedValues });
+          setHistory([...agent.history]);
+          setCurrentStage(merged.nextStage);
+          setAgentReasoning(merged.decisionReasoning);
+          void updatePdf(merged.updatedValues, flattenPdf);
+          speak(merged.agentUtterance);
+        })
+        .catch(() => {
+          speak(decision.agentUtterance);
+        })
+        .finally(() => setAiThinking(false));
     },
     [flattenPdf, updatePdf],
   );
 
+
   const { supported, listening, interim, toggle } = useSpeechRecognition(handleSpokenInput);
+
+  // The agent stays silent until the user taps the mic for the first time.
+  const startedRef = useRef(false);
+  const handleMicToggle = useCallback(() => {
+    if (!startedRef.current) {
+      startedRef.current = true;
+      speak(agentRef.current.getInitialGreeting());
+    }
+    toggle();
+  }, [toggle]);
+
 
   const handleDownload = async () => {
     const bytes = await createTexasDmvPdf(formValues, { flatten: flattenPdf });
@@ -261,7 +290,7 @@ function Index() {
             <div className="flex flex-col items-center gap-2 py-1">
               <button
                 type="button"
-                onClick={toggle}
+                onClick={handleMicToggle}
                 disabled={!supported}
                 aria-pressed={listening}
                 className={
@@ -281,10 +310,13 @@ function Index() {
                 )}
               </button>
               <p className="text-xs font-medium text-muted-foreground">
-                {listening
-                  ? "Listening… speak naturally to the agent."
-                  : "Tap mic to answer the agent aloud."}
+                {aiThinking
+                  ? "Understanding what you said…"
+                  : listening
+                    ? "Listening… speak naturally to the agent."
+                    : "Tap mic to answer the agent aloud."}
               </p>
+
               {interim && (
                 <p className="max-w-full rounded-md bg-muted px-2.5 py-1 text-xs italic text-muted-foreground">
                   {interim}…
