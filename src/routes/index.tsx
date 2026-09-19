@@ -270,11 +270,12 @@ function Index() {
     const keys = Object.keys(parsed) as (keyof FormValues)[];
     let merged: FormValues = { ...values, ...parsed };
 
-    // In guided mode, a bare answer belongs to the question just asked.
+    // In guided mode, a bare answer belongs to the question just asked — but only
+    // if it actually looks like an answer. Misheard chatter must never be stored.
     const current = currentFieldRef.current;
     if (guidedRef.current && current && keys.length === 0) {
       const bare = text.trim().replace(/[.!?]+$/, "");
-      if (bare && bare.split(/\s+/).length <= 10) {
+      if (isPlausibleAnswer(current, bare)) {
         merged = { ...merged, [current]: bare };
       }
     }
@@ -293,7 +294,12 @@ function Index() {
 
     // Ask the AI to catch anything the quick rules missed.
     setAiThinking(true);
-    extractFields({ data: { transcript: text } })
+    extractFields({
+      data: {
+        transcript: text,
+        ...(current ? { field: FIELD_LABELS[current], question: QUESTIONS[current] } : {}),
+      },
+    })
       .then((result) => {
         const extra = Object.entries(result.values).filter(
           ([field, value]) => value && !merged[field as keyof FormValues],
