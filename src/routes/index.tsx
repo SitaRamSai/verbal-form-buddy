@@ -134,6 +134,18 @@ function Index() {
   const [aiThinking, setAiThinking] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [typedAnswer, setTypedAnswer] = useState("");
+  const [profile, setProfile] = useState<ProfileDraft>(EMPTY_PROFILE);
+  const [profileDone, setProfileDone] = useState(false);
+
+  // Load any details the user saved on a previous visit.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(PROFILE_KEY);
+      if (saved) setProfile({ ...EMPTY_PROFILE, ...JSON.parse(saved) });
+    } catch {
+      /* ignore unreadable saved details */
+    }
+  }, []);
 
 
   // Refresh PDF when values or flatten toggle changes
