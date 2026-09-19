@@ -1,6 +1,7 @@
 # Add welcome script to FormBuddy landing page
 
 ## Goal
+
 Show the agent's opening script on the app so users know what to expect before starting:
 
 > "Welcome to FormBuddy. We'll complete the Utility Assistance application together. There are six steps. You can say 'repeat,' 'why do they need this,' 'save for later,' or 'what documents do I need?'"
@@ -18,5 +19,6 @@ There is currently no About page — the site is a blank placeholder — so this
 2. **`src/routes/__root.tsx`** — update the root title away from the template default so the app is no longer "Lovable App".
 
 ## Not included
+
 - No voice recording, AI, or form logic yet — this is presentation only, matching the request.
 - The broader voice-agent build (six-step flow, mic input, document checklist) stays available as a follow-up if you want it.

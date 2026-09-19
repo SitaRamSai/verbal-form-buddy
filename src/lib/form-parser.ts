@@ -39,25 +39,71 @@ export const FIELD_LABELS: Record<keyof FormValues, string> = {
 // --- number words -> digits -------------------------------------------------
 
 const SMALL: Record<string, number> = {
-  zero: 0, oh: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6,
-  seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12,
-  thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17,
-  eighteen: 18, nineteen: 19, twenty: 20, thirty: 30, forty: 40,
-  fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90,
+  zero: 0,
+  oh: 0,
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+  eleven: 11,
+  twelve: 12,
+  thirteen: 13,
+  fourteen: 14,
+  fifteen: 15,
+  sixteen: 16,
+  seventeen: 17,
+  eighteen: 18,
+  nineteen: 19,
+  twenty: 20,
+  thirty: 30,
+  forty: 40,
+  fifty: 50,
+  sixty: 60,
+  seventy: 70,
+  eighty: 80,
+  ninety: 90,
   hundred: 100,
 };
 
 // Ordinals are replaced with digits before number-word parsing so a spoken
 // day ("fifth") never merges into the year ("nineteen eighty five" -> 1985).
 const ORDINALS: Record<string, number> = {
-  first: 1, second: 2, third: 3, fourth: 4, fifth: 5, sixth: 6,
-  seventh: 7, eighth: 8, ninth: 9, tenth: 10, eleventh: 11,
-  twelfth: 12, thirteenth: 13, fourteenth: 14, fifteenth: 15,
-  sixteenth: 16, seventeenth: 17, eighteenth: 18, nineteenth: 19,
-  twentieth: 20, thirtieth: 30,
-  "twenty first": 21, "twenty second": 22, "twenty third": 23,
-  "twenty fourth": 24, "twenty fifth": 25, "twenty sixth": 26,
-  "twenty seventh": 27, "twenty eighth": 28, "twenty ninth": 29,
+  first: 1,
+  second: 2,
+  third: 3,
+  fourth: 4,
+  fifth: 5,
+  sixth: 6,
+  seventh: 7,
+  eighth: 8,
+  ninth: 9,
+  tenth: 10,
+  eleventh: 11,
+  twelfth: 12,
+  thirteenth: 13,
+  fourteenth: 14,
+  fifteenth: 15,
+  sixteenth: 16,
+  seventeenth: 17,
+  eighteenth: 18,
+  nineteenth: 19,
+  twentieth: 20,
+  thirtieth: 30,
+  "twenty first": 21,
+  "twenty second": 22,
+  "twenty third": 23,
+  "twenty fourth": 24,
+  "twenty fifth": 25,
+  "twenty sixth": 26,
+  "twenty seventh": 27,
+  "twenty eighth": 28,
+  "twenty ninth": 29,
   "thirty first": 31,
 };
 
@@ -66,10 +112,7 @@ const ORDINALS: Record<string, number> = {
 export function normalizeNumberWords(input: string): string {
   let prepared = ` ${input.toLowerCase().replace(/-/g, " ")} `;
   for (const phrase of Object.keys(ORDINALS).sort((a, b) => b.length - a.length)) {
-    prepared = prepared.replace(
-      new RegExp(`\\b${phrase}\\b`, "g"),
-      ` ${ORDINALS[phrase]} `
-    );
+    prepared = prepared.replace(new RegExp(`\\b${phrase}\\b`, "g"), ` ${ORDINALS[phrase]} `);
   }
   const tokens = prepared.trim().split(/\s+/);
   const out: string[] = [];
@@ -112,8 +155,18 @@ export function normalizeNumberWords(input: string): string {
 // --- date parsing -----------------------------------------------------------
 
 const MONTHS: Record<string, number> = {
-  january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
-  july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
+  january: 1,
+  february: 2,
+  march: 3,
+  april: 4,
+  may: 5,
+  june: 6,
+  july: 7,
+  august: 8,
+  september: 9,
+  october: 10,
+  november: 11,
+  december: 12,
 };
 
 const MONTH_NAMES = Object.keys(MONTHS);
@@ -169,6 +222,21 @@ function cleanEmail(value: string): string | null {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text) ? text : null;
 }
 
+function cleanAddress(value: string): string {
+  const trimmed = value.split(/\s+(?:and|also|then)\s+(?:my|the|our|it|i)\b/i)[0] ?? "";
+  return trimmed
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => {
+      if (/^[a-z]{2}$/i.test(word)) return word.toUpperCase();
+      if (/^(?:apt|ste|unit|po|box)$/i.test(word)) return word.toUpperCase();
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(" ");
+}
+
 // --- field extraction -------------------------------------------------------
 
 interface FieldRule {
@@ -206,10 +274,8 @@ const RULES: FieldRule[] = [
   },
   {
     field: "address",
-    patterns: [
-      /(?:my\s+address\s+is|i\s+live\s+at|address\s+is|living\s+at)\s+([^.,!?;]+)/i,
-    ],
-    clean: (v) => v.replace(/\s+/g, " ").trim(),
+    patterns: [/(?:my\s+address\s+is|i\s+live\s+at|address\s+is|living\s+at)\s+([^.,!?;]+)/i],
+    clean: cleanAddress,
   },
   {
     field: "householdSize",
@@ -269,10 +335,12 @@ export function parseTranscript(transcript: string): Partial<FormValues> {
 
 // --- voice commands ---------------------------------------------------------
 
-export type VoiceCommand = "repeat" | "why" | "save" | "documents";
+export type VoiceCommand = "repeat" | "why" | "save" | "documents" | "pdf";
 
 export function detectCommand(transcript: string): VoiceCommand | null {
   const t = transcript.toLowerCase();
+  if (/\b(show|open|view|see|download)\b.*\bpdf\b|\bpdf (form|view|application)\b/.test(t))
+    return "pdf";
   if (/\bwhat documents?\b|\bdocuments? do i need\b/.test(t)) return "documents";
   if (/\bwhy do (they|you) need\b|\bwhy (is|do you need) (this|it)\b/.test(t)) return "why";
   if (/\bsave\b.*\b(later|this|it)\b|\bsave it\b/.test(t)) return "save";
