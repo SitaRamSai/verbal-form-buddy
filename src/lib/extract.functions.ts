@@ -42,7 +42,9 @@ export const extractFields = createServerFn({ method: "POST" })
     if (!key) return { values: {}, error: "AI is not configured." };
 
     const { createLovableAiGatewayProvider } = await import("@/lib/ai-gateway.server");
-    const gateway = createLovableAiGatewayProvider(key);
+    const gateway = createLovableAiGatewayProvider(key, undefined, {
+      structuredOutputs: true,
+    });
 
     try {
       const result = streamText({
