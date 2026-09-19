@@ -336,6 +336,7 @@ function Index() {
   // Restore a saved draft on first load (client only).
   useEffect(() => {
     try {
+      setHasProfile(Boolean(localStorage.getItem(PROFILE_KEY)));
       const saved = localStorage.getItem(DRAFT_KEY);
       if (saved) {
         setValues({ ...EMPTY_FORM, ...JSON.parse(saved) });
