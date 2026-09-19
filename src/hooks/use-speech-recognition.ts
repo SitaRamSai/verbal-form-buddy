@@ -87,7 +87,38 @@ export function useSpeechRecognition(onFinalTranscript: (text: string) => void) 
     }
   }, [listening]);
 
-  return { supported, listening, interim, toggle };
+  // Half-duplex: pause the mic while the agent speaks so it never hears itself
+  // (or the user's "mm-hm") and interrupts the question.
+  const wasListeningRef = useRef(false);
+
+  const pause = useCallback(() => {
+    const recognition = recognitionRef.current;
+    if (!recognition) return;
+    wasListeningRef.current = listening;
+    if (listening) {
+      try {
+        recognition.stop();
+      } catch {
+        // already stopped
+      }
+      setListening(false);
+      setInterim("");
+    }
+  }, [listening]);
+
+  const resume = useCallback(() => {
+    const recognition = recognitionRef.current;
+    if (!recognition || !wasListeningRef.current) return;
+    wasListeningRef.current = false;
+    try {
+      recognition.start();
+      setListening(true);
+    } catch {
+      // already started
+    }
+  }, []);
+
+  return { supported, listening, interim, toggle, pause, resume };
 }
 
 function speakWithBrowserVoice(text: string) {
@@ -124,14 +155,14 @@ export function stopSpeaking() {
  * Speaks with a natural AI voice (streamed from our /api/tts route).
  * Falls back to the browser's built-in voice if the AI voice is unavailable.
  */
-export function speak(text: string) {
-  if (typeof window === "undefined") return;
+export function speak(text: string): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
   stopSpeaking();
   const token = speakToken;
   const controller = new AbortController();
   activeController = controller;
 
-  void (async () => {
+  return (async () => {
     try {
       const res = await fetch("/api/tts", {
         method: "POST",
@@ -201,10 +232,17 @@ export function speak(text: string) {
         if (token !== speakToken) return;
         parser.feed(value);
       }
+
+      // Wait until the queued audio has actually finished playing.
+      const remaining = playhead - ctx.currentTime;
+      if (remaining > 0) {
+        await new Promise((resolve) => setTimeout(resolve, remaining * 1000 + 150));
+      }
     } catch (error) {
       if ((error as Error)?.name === "AbortError" || token !== speakToken) return;
       // AI voice unavailable — fall back to the browser's built-in voice.
       speakWithBrowserVoice(text);
+      await new Promise((resolve) => setTimeout(resolve, Math.min(text.length * 60, 12000)));
     }
   })();
 }

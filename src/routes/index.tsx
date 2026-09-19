@@ -15,6 +15,7 @@ import {
   MessageCircle,
   RefreshCw,
   ShieldCheck,
+  SendHorizonal,
   Sparkles,
   Volume2,
 } from "lucide-react";
@@ -102,6 +103,8 @@ function Index() {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [viewMode, setViewMode] = useState<"form" | "pdf">("pdf");
   const [aiThinking, setAiThinking] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const [typedAnswer, setTypedAnswer] = useState("");
 
 
   // Refresh PDF when values or flatten toggle changes
@@ -129,7 +132,25 @@ function Index() {
   }, [updatePdf]);
 
 
-  // Handle Spoken Input from User (Mic or Simulation)
+  // Mic control lives in the hook; these refs let the agent mute the mic while it talks.
+  const micControlRef = useRef<{ pause: () => void; resume: () => void }>({
+    pause: () => {},
+    resume: () => {},
+  });
+
+  /** Speak with the mic muted, so the agent never hears itself or gets interrupted. */
+  const say = useCallback(async (text: string) => {
+    micControlRef.current.pause();
+    setSpeaking(true);
+    try {
+      await speak(text);
+    } finally {
+      setSpeaking(false);
+      micControlRef.current.resume();
+    }
+  }, []);
+
+  // Handle Spoken Input from User (Mic, keyboard or Simulation)
   const handleSpokenInput = useCallback(
     (spokenText: string) => {
       const agent = agentRef.current;
@@ -146,7 +167,7 @@ function Index() {
       void extractDmvFields({ data: { transcript: spokenText } })
         .then((result) => {
           if (Object.keys(result.values).length === 0) {
-            speak(decision.agentUtterance);
+            void say(decision.agentUtterance);
             return;
           }
           const merged = agent.applyExtractedValues(result.values);
@@ -155,28 +176,43 @@ function Index() {
           setCurrentStage(merged.nextStage);
           setAgentReasoning(merged.decisionReasoning);
           void updatePdf(merged.updatedValues, flattenPdf);
-          speak(merged.agentUtterance);
+          void say(merged.agentUtterance);
         })
         .catch(() => {
-          speak(decision.agentUtterance);
+          void say(decision.agentUtterance);
         })
         .finally(() => setAiThinking(false));
     },
-    [flattenPdf, updatePdf],
+    [flattenPdf, updatePdf, say],
   );
 
 
-  const { supported, listening, interim, toggle } = useSpeechRecognition(handleSpokenInput);
+  const { supported, listening, interim, toggle, pause, resume } =
+    useSpeechRecognition(handleSpokenInput);
+  micControlRef.current = { pause, resume };
 
   // The agent stays silent until the user taps the mic for the first time.
   const startedRef = useRef(false);
   const handleMicToggle = useCallback(() => {
     if (!startedRef.current) {
       startedRef.current = true;
-      speak(agentRef.current.getInitialGreeting());
+      void say(agentRef.current.getInitialGreeting()).then(() => toggle());
+      return;
     }
     toggle();
-  }, [toggle]);
+  }, [toggle, say]);
+
+  // Keyboard answers — type instead of speaking.
+  const handleTypedSubmit = useCallback(
+    (event: React.FormEvent) => {
+      event.preventDefault();
+      const text = typedAnswer.trim();
+      if (!text) return;
+      setTypedAnswer("");
+      handleSpokenInput(text);
+    },
+    [typedAnswer, handleSpokenInput],
+  );
 
 
   const handleDownload = async () => {
@@ -209,7 +245,7 @@ function Index() {
     setCurrentStage("GREETING_AND_TYPE");
     setAgentReasoning("Agent reset to initial DL-14A intake state.");
     void updatePdf(EMPTY_DMV_FORM, flattenPdf);
-    speak(greeting);
+    void say(greeting);
   };
 
   const progress = agentRef.current.getProgress();
@@ -310,11 +346,13 @@ function Index() {
                 )}
               </button>
               <p className="text-xs font-medium text-muted-foreground">
-                {aiThinking
-                  ? "Understanding what you said…"
-                  : listening
-                    ? "Listening… speak naturally to the agent."
-                    : "Tap mic to answer the agent aloud."}
+                {speaking
+                  ? "Agent is speaking… mic is muted so it won't interrupt you."
+                  : aiThinking
+                    ? "Understanding what you said…"
+                    : listening
+                      ? "Listening… speak naturally to the agent."
+                      : "Tap mic to answer the agent aloud, or type below."}
               </p>
 
               {interim && (
@@ -323,6 +361,29 @@ function Index() {
                 </p>
               )}
             </div>
+
+            {/* Keyboard answer */}
+            <form onSubmit={handleTypedSubmit} className="flex items-center gap-2">
+              <label htmlFor="typed-answer" className="sr-only">
+                Type your answer
+              </label>
+              <input
+                id="typed-answer"
+                type="text"
+                value={typedAnswer}
+                onChange={(event) => setTypedAnswer(event.target.value)}
+                placeholder="Or type your answer here…"
+                className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+              <button
+                type="submit"
+                disabled={!typedAnswer.trim()}
+                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <SendHorizonal className="h-4 w-4" aria-hidden="true" />
+                Send
+              </button>
+            </form>
 
             {/* Conversational Dialogue Log */}
             <div className="flex flex-col gap-2">
