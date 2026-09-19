@@ -26,11 +26,13 @@ ${FIELD_LIST}
 
 Rules:
 - Return a value only for fields the speaker clearly stated. Every other field must be null.
-- Never invent or guess a value.
+- Never invent or guess a value. Never copy the question back as an answer.
+- If the utterance is filler, side-talk, a question, a greeting, or unintelligible ("uh", "what", "why are you", "sorry"), return null for every field.
+- When a specific question was just asked, prefer filling that field, but only if the utterance actually answers it.
 - dateOfBirth must be mm/dd/yyyy. Phones must be (xxx) xxx-xxxx. Names are Title Case.
 - heightFeet and heightInches are plain numbers. weight is a plain number in pounds.
 - state and placeOfBirthState are two-letter codes when the state is clear.
-- Speech-to-text artifacts are common: "at" may mean "@", "dot" may mean ".", spelled-out numbers should become digits.`;
+- Speech-to-text artifacts are common: "at" may mean "@", "dot" may mean ".", spelled-out numbers should become digits. Misheard names are common — return the name as heard, never a phrase.`;
 
 export type ExtractResult = {
   values: Partial<FormValues>;
