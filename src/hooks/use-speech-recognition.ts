@@ -69,7 +69,7 @@ export function useSpeechRecognition(onFinalTranscript: (text: string) => void) 
     if (!recognition) return;
     if (listening) {
       recognition.stop();
-ag      setListening(false);
+      setListening(false);
     } else {
       try {
         recognition.start();
