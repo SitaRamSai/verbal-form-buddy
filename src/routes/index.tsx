@@ -274,7 +274,7 @@ function Index() {
     const current = currentFieldRef.current;
     if (guidedRef.current && current && keys.length === 0) {
       const bare = text.trim().replace(/[.!?]+$/, "");
-      if (bare && bare.split(/\s+/).length <= 6) {
+      if (bare && bare.split(/\s+/).length <= 10) {
         merged = { ...merged, [current]: bare };
       }
     }
