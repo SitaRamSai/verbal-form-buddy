@@ -139,10 +139,17 @@ export function formatSpokenDate(raw: string): string | null {
 // --- value cleaners ---------------------------------------------------------
 
 function cleanName(value: string): string {
-  return value
+  // Stop before the speaker starts describing another field.
+  const trimmed = value.split(/\s+(?:and|also|then)\s+(?:my|the|our|it|i)\b/i)[0];
+  const connectives = new Set(["and", "of", "the", "de", "jr", "sr"]);
+  return trimmed
     .split(/\s+/)
     .filter(Boolean)
-    .map((w) => w[0].toUpperCase() + w.slice(1))
+    .map((word, index) =>
+      index > 0 && connectives.has(word.toLowerCase())
+        ? word.toLowerCase()
+        : word[0].toUpperCase() + word.slice(1)
+    )
     .join(" ");
 }
 
