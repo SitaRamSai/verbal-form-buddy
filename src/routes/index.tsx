@@ -316,11 +316,58 @@ function Index() {
                   aria-hidden="true"
                 />
                 <p className="text-sm leading-relaxed text-foreground">
-                  “{WELCOME_SCRIPT}”
+                  {stage === "welcome"
+                    ? `“${INTRO_GREETING}”`
+                    : stage === "choose"
+                      ? `“${FORM_QUESTION}”`
+                      : `“${WELCOME_SCRIPT}”`}
                 </p>
               </div>
             </div>
 
+            {stage === "welcome" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setStage("choose");
+                  setStatus(FORM_QUESTION);
+                  speak(`${INTRO_GREETING} ${FORM_QUESTION}`);
+                }}
+                className="rounded-md bg-primary px-4 py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+              >
+                Let's begin
+              </button>
+            )}
+
+            {stage === "choose" && (
+              <ul className="flex flex-col gap-2">
+                {FORM_OPTIONS.map((option) => (
+                  <li key={option.label}>
+                    <button
+                      type="button"
+                      disabled={!option.available}
+                      onClick={() => {
+                        setStage("filling");
+                        setStatus(WELCOME_SCRIPT);
+                        speak(WELCOME_SCRIPT);
+                      }}
+                      className={
+                        "w-full rounded-lg border p-3 text-left transition-colors " +
+                        (option.available
+                          ? "border-border bg-background text-foreground hover:bg-accent"
+                          : "cursor-not-allowed border-border bg-muted text-muted-foreground opacity-70")
+                      }
+                    >
+                      <span className="block text-sm font-medium">{option.label}</span>
+                      <span className="block text-xs text-muted-foreground">{option.note}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {stage === "filling" && (
+              <>
             <div className="flex flex-col items-center gap-3 py-2">
               <button
                 type="button"
@@ -369,6 +416,9 @@ function Index() {
                 </button>
               ))}
             </div>
+              </>
+            )}
+
 
             {showDocuments && (
               <div className="rounded-lg border border-border bg-background p-4">
