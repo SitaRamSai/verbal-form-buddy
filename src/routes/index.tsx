@@ -186,6 +186,7 @@ function Index() {
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [aiThinking, setAiThinking] = useState(false);
   const lastFilledRef = useRef<(keyof FormValues)[]>([]);
+  const lastAskedRef = useRef<keyof FormValues | null>(null);
 
   const startConversation = useCallback(() => {
     setStage("choosing");
@@ -289,10 +290,23 @@ function Index() {
         if (keys.length === 0) setStatus(`I heard: “${text}”, but the AI couldn't be reached.`);
       })
       .finally(() => setAiThinking(false));
-  }, [values]);
+  }, [values, stage, startConversation, chooseForm]);
 
   const { supported, listening, interim, toggle } =
     useSpeechRecognition(handleTranscript);
+
+  // The question FormBuddy is on right now: the first field still empty.
+  const currentField =
+    stage === "filling"
+      ? (FORM_FIELDS.find(({ field }) => !values[field] && !skipped.has(field))?.field ?? null)
+      : null;
+
+  // Read each new question aloud once.
+  useEffect(() => {
+    if (!currentField || lastAskedRef.current === currentField) return;
+    lastAskedRef.current = currentField;
+    speak(FIELD_QUESTIONS[currentField]);
+  }, [currentField]);
 
   // Restore a saved draft on first load (client only).
   useEffect(() => {
