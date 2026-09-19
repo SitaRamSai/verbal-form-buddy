@@ -19,6 +19,8 @@ import {
   Volume2,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ScrollStory } from "@/components/scroll-story";
+
 import { speak, useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import {
   DmvVoiceAgent,
