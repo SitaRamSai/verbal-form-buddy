@@ -241,6 +241,7 @@ function Index() {
       if (saved) {
         setValues({ ...EMPTY_FORM, ...JSON.parse(saved) });
         setStatus("Welcome back — your saved draft was restored.");
+        setStage("filling");
       }
     } catch {
       // ignore malformed drafts
