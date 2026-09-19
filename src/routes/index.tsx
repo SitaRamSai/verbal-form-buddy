@@ -270,7 +270,7 @@ function Index() {
             <div className="flex flex-col items-center gap-2 py-1">
               <button
                 type="button"
-                onClick={toggle}
+                onClick={handleMicToggle}
                 disabled={!supported}
                 aria-pressed={listening}
                 className={
