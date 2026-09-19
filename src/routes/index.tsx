@@ -23,6 +23,7 @@ import {
 import { speak, useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import { fillPdf, pdfBlobUrl } from "@/lib/pdf-form";
 import { PdfPreview } from "@/components/pdf-preview";
+import { extractFields } from "@/lib/extract.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -127,6 +128,7 @@ function Index() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const [aiThinking, setAiThinking] = useState(false);
   const lastFilledRef = useRef<(keyof FormValues)[]>([]);
 
   const handleTranscript = useCallback((text: string) => {
@@ -162,14 +164,47 @@ function Index() {
 
     const parsed = parseTranscript(text);
     const keys = Object.keys(parsed) as (keyof FormValues)[];
-    if (keys.length === 0) {
-      setStatus(`I heard: “${text}”. Try naming the field, like “my name is…”.`);
-      return;
+    if (keys.length > 0) {
+      setValues((current) => ({ ...current, ...parsed }));
+      setJustFilled(new Set(keys));
+      lastFilledRef.current = keys;
+      setStatus(`Filled ${keys.map((k) => FIELD_LABELS[k]).join(", ")}.`);
+    } else {
+      setStatus(`I heard: “${text}”. Letting AI take a look…`);
     }
-    setValues((current) => ({ ...current, ...parsed }));
-    setJustFilled(new Set(keys));
-    lastFilledRef.current = keys;
-    setStatus(`Filled ${keys.map((k) => FIELD_LABELS[k]).join(", ")}.`);
+
+    // Ask the AI to catch anything the quick rules missed.
+    setAiThinking(true);
+    extractFields({ data: { transcript: text } })
+      .then((result) => {
+        const extra = Object.entries(result.values).filter(
+          ([field, value]) => value && !parsed[field as keyof FormValues],
+        ) as [keyof FormValues, string][];
+        if (extra.length === 0) {
+          if (keys.length === 0) {
+            setStatus(
+              result.error ??
+                `I heard: “${text}”, but couldn't tell which field it belongs to.`,
+            );
+          }
+          return;
+        }
+        const extraKeys = extra.map(([field]) => field);
+        setValues((current) => {
+          const next = { ...current };
+          for (const [field, value] of extra) next[field] = value;
+          return next;
+        });
+        setJustFilled(new Set([...keys, ...extraKeys]));
+        lastFilledRef.current = [...extraKeys, ...keys];
+        setStatus(
+          `Filled ${[...keys, ...extraKeys].map((k) => FIELD_LABELS[k]).join(", ")}.`,
+        );
+      })
+      .catch(() => {
+        if (keys.length === 0) setStatus(`I heard: “${text}”, but the AI couldn't be reached.`);
+      })
+      .finally(() => setAiThinking(false));
   }, [values]);
 
   const { supported, listening, interim, toggle } =
@@ -328,6 +363,9 @@ function Index() {
 
             <p className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground" aria-live="polite">
               {status}
+              {aiThinking && (
+                <span className="ml-2 text-muted-foreground">AI is checking…</span>
+              )}
             </p>
           </section>
 
