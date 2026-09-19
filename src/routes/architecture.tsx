@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   Accessibility,
+  AlertTriangle,
   ArrowRight,
   Bot,
   Braces,
