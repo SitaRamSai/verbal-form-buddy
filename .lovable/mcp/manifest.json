@@ -15,7 +15,7 @@
       {
         "name": "list_form_fields",
         "title": "List application fields",
-        "description": "List the fields of the Utility Assistance Application (Form UA-6) that FormBuddy can fill.",
+        "description": "List the fields of the Texas Driver License / ID Card Application (Form DL-14A) that FormBuddy can fill.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -31,7 +31,7 @@
       {
         "name": "parse_spoken_answers",
         "title": "Parse spoken answers",
-        "description": "Turn a spoken or typed sentence (for example \"my name is Maria Lopez and my monthly income is twelve hundred dollars\") into Utility Assistance Application field values. Also detects the voice commands repeat, why, save and documents.",
+        "description": "Turn a spoken or typed sentence (for example \"my name is Maria Lopez and I was born on January fifth nineteen eighty five\") into Texas DL-14A application field values. Also detects the voice commands repeat, why, save and documents.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
