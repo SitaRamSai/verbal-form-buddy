@@ -15,6 +15,7 @@ import {
   MessageCircle,
   RefreshCw,
   ShieldCheck,
+  SendHorizonal,
   Sparkles,
   Volume2,
 } from "lucide-react";
