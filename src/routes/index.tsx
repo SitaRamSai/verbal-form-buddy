@@ -129,6 +129,7 @@ function Index() {
   const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [aiThinking, setAiThinking] = useState(false);
+  const [stage, setStage] = useState<"welcome" | "choose" | "filling">("welcome");
   const lastFilledRef = useRef<(keyof FormValues)[]>([]);
 
   const handleTranscript = useCallback((text: string) => {
