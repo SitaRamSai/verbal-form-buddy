@@ -310,10 +310,13 @@ function Index() {
                 )}
               </button>
               <p className="text-xs font-medium text-muted-foreground">
-                {listening
-                  ? "Listening… speak naturally to the agent."
-                  : "Tap mic to answer the agent aloud."}
+                {aiThinking
+                  ? "Understanding what you said…"
+                  : listening
+                    ? "Listening… speak naturally to the agent."
+                    : "Tap mic to answer the agent aloud."}
               </p>
+
               {interim && (
                 <p className="max-w-full rounded-md bg-muted px-2.5 py-1 text-xs italic text-muted-foreground">
                   {interim}…
