@@ -420,7 +420,11 @@ function Index() {
                     ? `“${INTRO_GREETING}”`
                     : stage === "choose"
                       ? `“${FORM_QUESTION}”`
-                      : `“${WELCOME_SCRIPT}”`}
+                      : stage === "basics"
+                        ? "“Let's start with your basic info. Fill it in or use your browser's autofill — I'll ask about the rest by voice.”"
+                        : guided && currentField
+                          ? `“${QUESTIONS[currentField]}”`
+                          : `“${WELCOME_SCRIPT}”`}
                 </p>
               </div>
             </div>
@@ -447,9 +451,11 @@ function Index() {
                       type="button"
                       disabled={!option.available}
                       onClick={() => {
-                        setStage("filling");
-                        setStatus(WELCOME_SCRIPT);
-                        speak(WELCOME_SCRIPT);
+                        setStage("basics");
+                        const line =
+                          "Let's start with your basic info. Fill it in or use your browser's autofill, then we'll continue by voice.";
+                        setStatus(line);
+                        speak(line);
                       }}
                       className={
                         "w-full rounded-lg border p-3 text-left transition-colors " +
@@ -465,6 +471,103 @@ function Index() {
                 ))}
               </ul>
             )}
+
+            {stage === "basics" && (
+              <div className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4">
+                <div className="flex items-center gap-2">
+                  <UserRound className="h-4 w-4 text-primary" aria-hidden="true" />
+                  <h3 className="text-sm font-semibold text-foreground">Your basic info</h3>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Autofill works here — your browser can complete these in one tap. Nothing sensitive is
+                  asked for.
+                </p>
+                <form
+                  className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+                  onSubmit={(e) => e.preventDefault()}
+                >
+                  {BASIC_FIELDS.map(({ field, autoComplete, placeholder, wide }) => (
+                    <div key={field} className={wide ? "sm:col-span-2" : undefined}>
+                      <label
+                        htmlFor={`basic-${field}`}
+                        className="mb-1 block text-xs font-medium text-foreground"
+                      >
+                        {FIELD_LABELS[field]}
+                      </label>
+                      <input
+                        id={`basic-${field}`}
+                        name={autoComplete}
+                        autoComplete={autoComplete}
+                        value={values[field]}
+                        placeholder={placeholder}
+                        onChange={(e) =>
+                          setValues((current) => ({ ...current, [field]: e.target.value }))
+                        }
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      />
+                    </div>
+                  ))}
+                </form>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStage("filling");
+                      askNext(values);
+                    }}
+                    className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+                  >
+                    Continue by voice
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try {
+                        const basics: Record<string, string> = {};
+                        for (const { field } of BASIC_FIELDS) basics[field] = values[field];
+                        localStorage.setItem(PROFILE_KEY, JSON.stringify(basics));
+                        setHasProfile(true);
+                        setStatus("Your basic info is saved on this device for next time.");
+                      } catch {
+                        setStatus("Couldn't save your info in this browser.");
+                      }
+                    }}
+                    className="rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+                  >
+                    Save my info
+                  </button>
+                  {hasProfile && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        try {
+                          const saved = JSON.parse(localStorage.getItem(PROFILE_KEY) ?? "{}");
+                          setValues((current) => ({ ...current, ...saved }));
+                          setStatus("Filled in your saved basic info.");
+                        } catch {
+                          setStatus("Couldn't read your saved info.");
+                        }
+                      }}
+                      className="rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+                    >
+                      Use saved info
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStage("filling");
+                      setStatus(WELCOME_SCRIPT);
+                      speak(WELCOME_SCRIPT);
+                    }}
+                    className="rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+                  >
+                    Skip this
+                  </button>
+                </div>
+              </div>
+            )}
+
 
             {stage === "filling" && (
               <>
