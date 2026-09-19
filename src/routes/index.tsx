@@ -363,6 +363,9 @@ function Index() {
 
             <p className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground" aria-live="polite">
               {status}
+              {aiThinking && (
+                <span className="ml-2 text-muted-foreground">AI is checking…</span>
+              )}
             </p>
           </section>
 
