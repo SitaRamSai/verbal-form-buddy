@@ -99,6 +99,26 @@ function speakWithBrowserVoice(text: string) {
 }
 
 let sharedAudioCtx: AudioContext | null = null;
+let speakToken = 0;
+let activeSources: AudioBufferSourceNode[] = [];
+let activeController: AbortController | null = null;
+
+/** Stops anything currently being spoken so two replies never overlap. */
+export function stopSpeaking() {
+  speakToken += 1;
+  activeController?.abort();
+  activeController = null;
+  for (const source of activeSources) {
+    try {
+      source.stop();
+      source.disconnect();
+    } catch {
+      // already finished
+    }
+  }
+  activeSources = [];
+  if (typeof window !== "undefined") window.speechSynthesis?.cancel();
+}
 
 /**
  * Speaks with a natural AI voice (streamed from our /api/tts route).
@@ -106,7 +126,10 @@ let sharedAudioCtx: AudioContext | null = null;
  */
 export function speak(text: string) {
   if (typeof window === "undefined") return;
-  window.speechSynthesis?.cancel();
+  stopSpeaking();
+  const token = speakToken;
+  const controller = new AbortController();
+  activeController = controller;
 
   void (async () => {
     try {
@@ -114,12 +137,15 @@ export function speak(text: string) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
+        signal: controller.signal,
       });
       if (!res.ok || !res.body) throw new Error(`TTS failed: ${res.status}`);
+      if (token !== speakToken) return;
 
       sharedAudioCtx ??= new AudioContext({ sampleRate: 24000 });
       const ctx = sharedAudioCtx;
       if (ctx.state === "suspended") await ctx.resume().catch(() => {});
+
 
       let playhead = 0;
       let pending = new Uint8Array(0);
