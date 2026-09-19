@@ -187,7 +187,35 @@ function Index() {
   const [aiThinking, setAiThinking] = useState(false);
   const lastFilledRef = useRef<(keyof FormValues)[]>([]);
 
+  const startConversation = useCallback(() => {
+    setStage("choosing");
+    setStatus(FORM_QUESTION);
+    speak(`${GREETING} ${FORM_QUESTION}`);
+  }, []);
+
+  const chooseForm = useCallback(() => {
+    setStage("filling");
+    setStatus(WELCOME_SCRIPT);
+    speak(WELCOME_SCRIPT);
+    lastAskedRef.current = null;
+  }, []);
+
   const handleTranscript = useCallback((text: string) => {
+    if (stage === "welcome") {
+      startConversation();
+      return;
+    }
+    if (stage === "choosing") {
+      if (/driver|licence|license|texas|d\s?l\s?-?\s?14|identification|id card|first|that one|yes/i.test(text)) {
+        chooseForm();
+      } else {
+        setStatus(
+          `I heard: “${text}”. Right now I can help with the Texas Driver License / ID Card application — say “Texas driver license” to start.`,
+        );
+      }
+      return;
+    }
+
     const command = detectCommand(text);
     if (command === "repeat") {
       speak(WELCOME_SCRIPT);
