@@ -22,7 +22,8 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ScrollStory } from "@/components/scroll-story";
 
-import { speak, useSpeechRecognition } from "@/hooks/use-speech-recognition";
+import { speak } from "@/hooks/use-speech-recognition";
+import { useVoiceSession } from "@/hooks/use-voice-session";
 import {
   DmvVoiceAgent,
   EMPTY_DMV_FORM,
@@ -228,20 +229,30 @@ function Index() {
   );
 
 
-  const { supported, listening, interim, toggle, pause, resume } =
-    useSpeechRecognition(handleSpokenInput);
-  micControlRef.current = { pause, resume };
+  // ChatGPT-style voice session: continuous mic, silence ends your turn,
+  // the clip is transcribed server-side, then the agent replies out loud.
+  const voice = useVoiceSession({ onUtterance: handleSpokenInput });
+  micControlRef.current = {
+    pause: () => voice.setMuted(true),
+    resume: () => voice.setMuted(false),
+  };
+  const supported = typeof navigator !== "undefined" && !!navigator.mediaDevices;
+  const listening = voice.status === "listening";
 
   // The agent stays silent until the user taps the mic for the first time.
   const startedRef = useRef(false);
   const handleMicToggle = useCallback(() => {
-    if (!startedRef.current) {
-      startedRef.current = true;
-      void say(agentRef.current.getInitialGreeting()).then(() => toggle());
+    if (voice.status !== "off") {
+      voice.stop();
       return;
     }
-    toggle();
-  }, [toggle, say]);
+    if (!startedRef.current) {
+      startedRef.current = true;
+      void say(agentRef.current.getInitialGreeting()).then(() => voice.start());
+      return;
+    }
+    void voice.start();
+  }, [voice, say]);
 
   // Keyboard answers — type instead of speaking.
   const handleTypedSubmit = useCallback(
@@ -273,10 +284,10 @@ function Index() {
       setProfileDone(true);
       startedRef.current = true;
       void say(decision.agentUtterance).then(() => {
-        if (!listening) toggle();
+        if (voice.status === "off") void voice.start();
       });
     },
-    [profile, updatePdf, flattenPdf, say, listening, toggle],
+    [profile, updatePdf, flattenPdf, say, voice],
   );
 
 
@@ -448,22 +459,30 @@ function Index() {
             )}
 
 
-            {/* Microphone Button */}
-            <div className="flex flex-col items-center gap-2 py-1">
+            {/* Voice session — tap once, then just talk; silence ends your turn */}
+            <div className="flex flex-col items-center gap-2 py-2">
               <button
                 type="button"
                 onClick={handleMicToggle}
                 disabled={!supported}
-                aria-pressed={listening}
+                aria-pressed={voice.status !== "off"}
                 className={
-                  "flex h-16 w-16 items-center justify-center rounded-full border transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 " +
-                  (listening
-                    ? "scale-105 border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/25 animate-pulse"
+                  "relative flex h-20 w-20 items-center justify-center rounded-full border transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 " +
+                  (voice.status !== "off"
+                    ? "border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/25"
                     : "border-border bg-background text-foreground hover:bg-accent hover:scale-105")
                 }
-                aria-label={listening ? "Stop listening" : "Start speaking to agent"}
+                style={
+                  listening
+                    ? { transform: `scale(${1 + Math.min(voice.level * 3, 0.25)})` }
+                    : undefined
+                }
+                aria-label={voice.status !== "off" ? "End voice conversation" : "Start voice conversation"}
               >
-                {listening ? (
+                {voice.status === "speaking" && (
+                  <span className="absolute inset-0 rounded-full bg-primary/30 animate-ping" aria-hidden="true" />
+                )}
+                {voice.status !== "off" ? (
                   <CircleStop className="h-8 w-8" aria-hidden="true" />
                 ) : supported ? (
                   <Mic className="h-8 w-8" aria-hidden="true" />
@@ -471,19 +490,21 @@ function Index() {
                   <MicOff className="h-8 w-8" aria-hidden="true" />
                 )}
               </button>
-              <p className="text-xs font-medium text-muted-foreground">
-                {speaking
-                  ? "Agent is speaking… mic is muted so it won't interrupt you."
-                  : aiThinking
+              <p className="text-xs font-medium text-muted-foreground text-center">
+                {speaking || voice.status === "speaking"
+                  ? "Agent is speaking…"
+                  : aiThinking || voice.status === "thinking"
                     ? "Understanding what you said…"
                     : listening
-                      ? "Listening… speak naturally to the agent."
-                      : "Tap mic to answer the agent aloud, or type below."}
+                      ? "Listening — just talk. Pause when you're done."
+                      : supported
+                        ? "Tap to start the conversation, or type below."
+                        : "Your browser can't use the microphone — type below."}
               </p>
 
-              {interim && (
-                <p className="max-w-full rounded-md bg-muted px-2.5 py-1 text-xs italic text-muted-foreground">
-                  {interim}…
+              {voice.error && (
+                <p className="rounded-md bg-destructive/10 px-2.5 py-1 text-xs text-destructive">
+                  {voice.error}
                 </p>
               )}
             </div>

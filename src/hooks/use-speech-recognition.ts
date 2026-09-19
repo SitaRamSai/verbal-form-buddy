@@ -175,7 +175,13 @@ export function speak(text: string): Promise<void> {
 
       sharedAudioCtx ??= new AudioContext({ sampleRate: 24000 });
       const ctx = sharedAudioCtx;
-      if (ctx.state === "suspended") await ctx.resume().catch(() => {});
+      if (ctx.state === "suspended") {
+        // Never block forever: some environments never settle resume().
+        await Promise.race([
+          ctx.resume().catch(() => {}),
+          new Promise((resolve) => setTimeout(resolve, 1000)),
+        ]);
+      }
 
 
       let playhead = 0;
