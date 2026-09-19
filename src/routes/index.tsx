@@ -50,6 +50,29 @@ export const Route = createFileRoute("/")({
 const WELCOME_SCRIPT =
   "Welcome to FormBuddy. We'll complete the Utility Assistance application together. There are six steps. You can say 'repeat,' 'why do they need this,' 'save for later,' or 'what documents do I need?'";
 
+const INTRO_GREETING =
+  "Hi, I'm FormBuddy. I help you finish government forms by voice, one question at a time.";
+
+const FORM_QUESTION = "Which form would you like to work on today?";
+
+const FORM_OPTIONS: { label: string; note: string; available: boolean }[] = [
+  {
+    label: "Texas Driver License / ID Card — Form DL-14A",
+    note: "Texas DPS · ready to fill",
+    available: true,
+  },
+  {
+    label: "Utility Assistance application",
+    note: "Coming soon",
+    available: false,
+  },
+  {
+    label: "Upload my own form",
+    note: "Coming soon",
+    available: false,
+  },
+];
+
 const VOICE_COMMANDS = [
   "repeat",
   "why do they need this",
