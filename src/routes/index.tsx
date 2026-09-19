@@ -274,7 +274,7 @@ function Index() {
     const current = currentFieldRef.current;
     if (guidedRef.current && current && keys.length === 0) {
       const bare = text.trim().replace(/[.!?]+$/, "");
-      if (bare && bare.split(/\s+/).length <= 6) {
+      if (bare && bare.split(/\s+/).length <= 10) {
         merged = { ...merged, [current]: bare };
       }
     }
@@ -322,10 +322,21 @@ function Index() {
       })
       .finally(() => {
         setAiThinking(false);
-        if (guidedRef.current) {
-          const field = currentFieldRef.current;
-          if (!field || merged[field]) askNext(merged);
+        if (!guidedRef.current) return;
+        const field = currentFieldRef.current;
+        if (!field) {
+          // No question was active — start (or resume) the guided flow.
+          askNext(merged);
+          return;
         }
+        if (merged[field]) {
+          askNext(merged);
+          return;
+        }
+        // Still empty: say so out loud and ask the same question again.
+        const retry = `Sorry, I didn't catch that. ${QUESTIONS[field]}`;
+        setStatus(retry);
+        speak(retry);
       });
   }, [values, askNext]);
 
@@ -563,8 +574,7 @@ function Index() {
                     type="button"
                     onClick={() => {
                       setStage("filling");
-                      setStatus(WELCOME_SCRIPT);
-                      speak(WELCOME_SCRIPT);
+                      askNext(values);
                     }}
                     className="rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
                   >
