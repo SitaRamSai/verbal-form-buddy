@@ -218,7 +218,7 @@ function Index() {
             FormBuddy
           </h1>
           <p className="text-sm text-muted-foreground">
-            Utility Assistance application — speak and FormBuddy fills in the form.
+            Texas Driver License / ID Card application — speak and FormBuddy fills in the form.
           </p>
         </header>
 
@@ -325,10 +325,10 @@ function Index() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-foreground">
-                  Utility Assistance Application
+                  Texas Driver License / ID Card Application
                 </h2>
                 <p className="text-xs text-muted-foreground">
-                  Official Form UA-6 (PDF) — filled live as you speak
+                  Official Form DL-14A (PDF) — filled live as you speak
                 </p>
               </div>
               <span className="text-sm text-muted-foreground">
