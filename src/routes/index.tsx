@@ -197,7 +197,7 @@ function Index() {
   const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [aiThinking, setAiThinking] = useState(false);
-  const [stage, setStage] = useState<"welcome" | "choose" | "basics" | "filling">("welcome");
+  const [stage, setStage] = useState<"welcome" | "basics" | "filling">("welcome");
   const [guided, setGuided] = useState(true);
   const [currentField, setCurrentField] = useState<keyof FormValues | null>(null);
   const [hasProfile, setHasProfile] = useState(false);
