@@ -193,20 +193,51 @@ function ArchitecturePage() {
           </h2>
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <div
-              className="flex flex-col lg:flex-row lg:items-stretch"
+              className="flex flex-col"
               role="list"
               aria-label="System flow from Jordan to manual submission"
             >
-              {FLOW_STEPS.map((step, index) => (
-                <div key={step.label} className="flex flex-col lg:flex-row lg:items-stretch lg:flex-1">
-                  <div role="listitem" className="flex min-w-0 lg:flex-1">
-                    <FlowNode
-                      label={step.label}
-                      Icon={step.icon}
-                      isJordan={index === 0}
-                    />
+              {[FLOW_STEPS.slice(0, 5), FLOW_STEPS.slice(5)].map((row, rowIndex) => (
+                <div key={rowIndex}>
+                  <div className="flex flex-col lg:flex-row lg:items-stretch">
+                    {row.map((step, i) => {
+                      const globalIndex = rowIndex * 5 + i;
+                      const isRowEnd = i === row.length - 1;
+                      return (
+                        <div
+                          key={step.label}
+                          className="flex flex-col lg:flex-row lg:flex-1 lg:items-stretch"
+                        >
+                          <div role="listitem" className="flex min-w-0 lg:flex-1">
+                            <FlowNode
+                              label={step.label}
+                              Icon={step.icon}
+                              isJordan={globalIndex === 0}
+                            />
+                          </div>
+                          {globalIndex < FLOW_STEPS.length - 1 && (
+                            <div
+                              className={
+                                "flex items-center justify-center py-1 lg:py-0 lg:px-1" +
+                                (isRowEnd ? " lg:hidden" : "")
+                              }
+                              aria-hidden="true"
+                            >
+                              <ArrowRight className="h-4 w-4 rotate-90 text-muted-foreground lg:rotate-0" />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                  {index < FLOW_STEPS.length - 1 && <FlowArrow />}
+                  {rowIndex === 0 && (
+                    <div
+                      className="hidden items-center justify-center py-2 lg:flex"
+                      aria-hidden="true"
+                    >
+                      <ArrowRight className="h-4 w-4 rotate-90 text-muted-foreground" />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
