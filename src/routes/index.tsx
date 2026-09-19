@@ -148,6 +148,17 @@ function Index() {
 
   const { supported, listening, interim, toggle } = useSpeechRecognition(handleSpokenInput);
 
+  // The agent stays silent until the user taps the mic for the first time.
+  const startedRef = useRef(false);
+  const handleMicToggle = useCallback(() => {
+    if (!startedRef.current) {
+      startedRef.current = true;
+      speak(agentRef.current.getInitialGreeting());
+    }
+    toggle();
+  }, [toggle]);
+
+
   const handleDownload = async () => {
     const bytes = await createTexasDmvPdf(formValues, { flatten: flattenPdf });
     const filename = formValues.lastName
