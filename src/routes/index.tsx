@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  Brain,
   Check,
   CircleStop,
   Download,
@@ -14,30 +15,30 @@ import {
   Volume2,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  EMPTY_FORM,
-  FIELD_LABELS,
-  detectCommand,
-  parseTranscript,
-  type FormValues,
-} from "@/lib/form-parser";
 import { speak, useSpeechRecognition } from "@/hooks/use-speech-recognition";
-import { createUtilityAssistancePdf, createPdfBlobUrl, downloadPdf } from "@/lib/pdf-service";
+import {
+  DmvVoiceAgent,
+  EMPTY_DMV_FORM,
+  type DmvFormValues,
+  type AgentDialogueTurn,
+  type InterviewStage,
+} from "@/lib/dmv-agent";
+import { createTexasDmvPdf, createDmvPdfBlobUrl, downloadDmvPdf } from "@/lib/dmv-pdf-service";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "FormBuddy — Voice Agent for Utility Assistance PDF" },
+      { title: "Texas DPS Driver License Voice Agent — FormBuddy" },
       {
         name: "description",
         content:
-          "Speak naturally and FormBuddy fills out the official Utility Assistance PDF application for you in real-time.",
+          "Autonomous Voice Agent powered by PaddleOCR form key extraction for Texas DPS Driver License Application Form DL-14A.",
       },
-      { property: "og:title", content: "FormBuddy — Voice Agent for Utility Assistance PDF" },
+      { property: "og:title", content: "Texas DPS Driver License Voice Agent — FormBuddy" },
       {
         property: "og:description",
         content:
-          "Speak naturally and FormBuddy fills out the official Utility Assistance application for you.",
+          "Autonomous voice agent that conducts the Texas DL-14A Driver License interview and fills the official PDF.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -46,580 +47,572 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-const WELCOME_SCRIPT =
-  "Welcome to FormBuddy. We'll complete the Utility Assistance application together. There are six steps. You can say 'repeat,' 'why do they need this,' 'save for later,' 'show pdf,' or 'what documents do I need?'";
-
-const VOICE_COMMANDS = [
-  "repeat",
-  "why do they need this",
-  "save for later",
-  "show pdf",
-  "what documents do I need?",
-];
-
-const DOCUMENTS = [
-  "Photo ID",
-  "Proof of income (last 30 days)",
-  "Recent utility bill",
-  "Proof of address (lease or mortgage)",
-  "Social Security numbers for household members",
-];
-
-const FIELD_HINTS: Record<keyof FormValues, string> = {
-  fullName: "They use it to verify your identity on the application.",
-  dateOfBirth: "It confirms your identity and checks age-based programs.",
-  phone: "The utility office calls this number about your application.",
-  email: "They send your approval decision and status updates here.",
-  address: "Your address decides which utility company serves you.",
-  householdSize: "Income limits depend on how many people live with you.",
-  monthlyIncome: "Assistance is income-based; this decides your eligibility.",
-  utilityProvider: "They need to know which company sends your bill.",
-  accountNumber: "It links the assistance payment to your utility account.",
+const STAGE_LABELS: Record<InterviewStage, string> = {
+  GREETING_AND_TYPE: "1. Credential & Application Type",
+  IDENTITY: "2. Personal Identification & DOB",
+  PHYSICAL: "3. Physical Descriptors (Card Details)",
+  CONTACT: "4. Texas Residential Address & Phone",
+  ELIGIBILITY: "5. Statutory Eligibility (Yes/No)",
+  COMPLETED: "6. Application Complete & Verified",
 };
 
-const DRAFT_KEY = "formbuddy-draft";
-
-const FORM_FIELDS: {
-  field: keyof FormValues;
-  type: string;
-  placeholder: string;
-  wide?: boolean;
-}[] = [
-  { field: "fullName", type: "text", placeholder: "e.g. Maria Lopez", wide: true },
-  { field: "dateOfBirth", type: "text", placeholder: "e.g. January 5, 1985" },
-  { field: "phone", type: "text", placeholder: "e.g. (555) 123-4567" },
-  { field: "email", type: "text", placeholder: "e.g. maria@example.com", wide: true },
-  { field: "address", type: "text", placeholder: "e.g. 42 Elm Street, Springfield", wide: true },
-  { field: "householdSize", type: "text", placeholder: "e.g. 4" },
-  { field: "monthlyIncome", type: "text", placeholder: "e.g. $2,400" },
-  { field: "utilityProvider", type: "text", placeholder: "e.g. City Power & Light", wide: true },
-  { field: "accountNumber", type: "text", placeholder: "e.g. 1234567890", wide: true },
-];
-
-const QUICK_TEST_PROMPTS = [
+const SIMULATED_CONVERSATION_STEPS = [
   {
-    label: "Name & Address",
-    text: "My name is Carlos Rodriguez and I live at 742 Evergreen Terrace Springfield IL 62704",
+    step: "1. Credential",
+    callerText: "Hi, I'm applying for a Texas Driver License renewal, class C.",
   },
   {
-    label: "Phone & Email",
-    text: "My phone number is 555-432-8765 and my email is carlos dot rodriguez at example dot com",
+    step: "2. Identity",
+    callerText:
+      "My name is Carlos Rodriguez, born on January 15, 1982. Male, social security number 555-43-8765.",
   },
   {
-    label: "DOB & Income",
-    text: "I was born on January 15, 1982 and our monthly income is about 2850 dollars with household size of 4",
+    step: "3. Physical",
+    callerText: "I'm 5 foot 10 inches, 180 pounds, with brown eyes and black hair.",
   },
   {
-    label: "Utility & Account",
-    text: "My utility company is Springfield Electric and Power and account number is 8849201934",
+    step: "4. Address",
+    callerText:
+      "I live at 742 Evergreen Terrace, Austin, Texas, 78701, Travis county. Phone is 555-432-8765 and email is carlos dot rodriguez at example dot com.",
+  },
+  {
+    step: "5. Eligibility",
+    callerText:
+      "Yes I am a US citizen, yes please register me to vote, no I'm not a veteran, and yes add me as an organ donor.",
   },
 ];
 
 function Index() {
-  const [values, setValues] = useState<FormValues>(EMPTY_FORM);
-  const [status, setStatus] = useState(WELCOME_SCRIPT);
-  const [justFilled, setJustFilled] = useState<Set<keyof FormValues>>(new Set());
-  const [showDocuments, setShowDocuments] = useState(false);
-  const [viewMode, setViewMode] = useState<"form" | "pdf">("form");
-  const [flattenPdf, setFlattenPdf] = useState(false);
+  const agentRef = useRef<DmvVoiceAgent>(new DmvVoiceAgent());
+  const [formValues, setFormValues] = useState<DmvFormValues>(EMPTY_DMV_FORM);
+  const [history, setHistory] = useState<AgentDialogueTurn[]>([]);
+  const [currentStage, setCurrentStage] = useState<InterviewStage>("GREETING_AND_TYPE");
+  const [agentReasoning, setAgentReasoning] = useState(
+    "Agent initialized from PaddleOCR DL-14A schema with 29 target keys.",
+  );
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [flattenPdf, setFlattenPdf] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-  const lastFilledRef = useRef<(keyof FormValues)[]>([]);
+  const [viewMode, setViewMode] = useState<"form" | "pdf">("pdf");
 
-  // Regenerate PDF whenever values change or flatten setting toggles
-  const refreshPdf = useCallback(async (currentValues: FormValues, flatten: boolean) => {
+  // Refresh PDF when values or flatten toggle changes
+  const updatePdf = useCallback(async (values: DmvFormValues, flatten: boolean) => {
     try {
       setIsGeneratingPdf(true);
-      const bytes = await createUtilityAssistancePdf(currentValues, { flatten });
-      const url = createPdfBlobUrl(bytes);
+      const bytes = await createTexasDmvPdf(values, { flatten });
+      const url = createDmvPdfBlobUrl(bytes);
       setPdfBlobUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return url;
       });
     } catch (err) {
-      console.error("Failed to generate PDF:", err);
+      console.error("Failed to generate Texas DL-14A PDF:", err);
     } finally {
       setIsGeneratingPdf(false);
     }
   }, []);
 
+  // Initialize Agent Dialogue on mount
   useEffect(() => {
-    void refreshPdf(values, flattenPdf);
-  }, [values, flattenPdf, refreshPdf]);
+    const agent = agentRef.current;
+    const initialGreeting = agent.getInitialGreeting();
+    setHistory([...agent.history]);
+    void updatePdf(agent.values, false);
+    // Voice agent speaks the opening question
+    speak(initialGreeting);
+  }, [updatePdf]);
 
-  // Cleanup blob URL on unmount
-  useEffect(() => {
-    return () => {
-      if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
-    };
-  }, [pdfBlobUrl]);
+  // Handle Spoken Input from User (Mic or Simulation)
+  const handleSpokenInput = useCallback(
+    (spokenText: string) => {
+      const agent = agentRef.current;
+      const decision = agent.processSpokenInput(spokenText);
 
-  const handleTranscript = useCallback(
-    (text: string) => {
-      const command = detectCommand(text);
-      if (command === "repeat") {
-        speak(WELCOME_SCRIPT);
-        setStatus("Repeating the welcome message.");
-        return;
-      }
-      if (command === "documents") {
-        setShowDocuments(true);
-        setStatus("Here's the document checklist.");
-        return;
-      }
-      if (command === "why") {
-        const last = lastFilledRef.current[0];
-        setStatus(
-          last
-            ? `${FIELD_LABELS[last]}: ${FIELD_HINTS[last]}`
-            : "Fill a field first, then ask 'why do they need this'.",
-        );
-        return;
-      }
-      if (command === "save") {
-        try {
-          localStorage.setItem(DRAFT_KEY, JSON.stringify(values));
-          setStatus("Your application is saved for later on this device.");
-        } catch {
-          setStatus("Couldn't save the draft in this browser.");
-        }
-        return;
-      }
-      if (command === "pdf") {
-        setViewMode("pdf");
-        setStatus("Switched to the official PDF application preview.");
-        return;
-      }
+      setFormValues({ ...decision.updatedValues });
+      setHistory([...agent.history]);
+      setCurrentStage(decision.nextStage);
+      setAgentReasoning(decision.decisionReasoning);
 
-      const parsed = parseTranscript(text);
-      const keys = Object.keys(parsed) as (keyof FormValues)[];
-      if (keys.length === 0) {
-        setStatus(`I heard: “${text}”. Try naming the field, like “my name is…”.`);
-        return;
-      }
-      setValues((current) => ({ ...current, ...parsed }));
-      setJustFilled(new Set(keys));
-      lastFilledRef.current = keys;
-      setStatus(
-        `Voice Agent filled ${keys.map((k) => FIELD_LABELS[k]).join(", ")} into both Form & PDF.`,
-      );
+      // Autonomous agent speaks the next utterance aloud
+      speak(decision.agentUtterance);
+
+      // Update the live PDF
+      void updatePdf(decision.updatedValues, flattenPdf);
     },
-    [values],
+    [flattenPdf, updatePdf],
   );
 
-  const { supported, listening, interim, toggle } = useSpeechRecognition(handleTranscript);
-
-  // Restore a saved draft on first load (client only).
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(DRAFT_KEY);
-      if (saved) {
-        setValues({ ...EMPTY_FORM, ...JSON.parse(saved) });
-        setStatus("Welcome back — your saved draft was restored.");
-      }
-    } catch {
-      // ignore malformed drafts
-    }
-  }, []);
+  const { supported, listening, interim, toggle } = useSpeechRecognition(handleSpokenInput);
 
   const handleDownload = async () => {
-    try {
-      const bytes = await createUtilityAssistancePdf(values, { flatten: flattenPdf });
-      const filename = values.fullName
-        ? `utility-assistance-${values.fullName.toLowerCase().replace(/\s+/g, "-")}.pdf`
-        : "utility-assistance-application.pdf";
-      downloadPdf(bytes, filename);
-      setStatus(`Downloaded official filled PDF application: ${filename}`);
-    } catch (err) {
-      console.error("Download failed:", err);
-      setStatus("Could not trigger PDF download.");
+    const bytes = await createTexasDmvPdf(formValues, { flatten: flattenPdf });
+    const filename = formValues.lastName
+      ? `texas-dl14a-${formValues.lastName.toLowerCase()}-${formValues.firstName.toLowerCase()}.pdf`
+      : "texas-dl14a-application.pdf";
+    downloadDmvPdf(bytes, filename);
+  };
+
+  const handleRunFullSimulation = () => {
+    const agent = new DmvVoiceAgent();
+    agentRef.current = agent;
+    for (const step of SIMULATED_CONVERSATION_STEPS) {
+      agent.processSpokenInput(step.callerText);
     }
+    setFormValues({ ...agent.values });
+    setHistory([...agent.history]);
+    setCurrentStage(agent.currentStage);
+    setAgentReasoning("Full simulated intake interview completed. 24/29 keys populated.");
+    void updatePdf(agent.values, flattenPdf);
   };
 
-  const handleSimulateFullCarlos = () => {
-    const carlos: FormValues = {
-      fullName: "Carlos Rodriguez",
-      dateOfBirth: "January 15, 1982",
-      phone: "(555) 432-8765",
-      email: "carlos.rodriguez@example.com",
-      address: "742 Evergreen Terrace Springfield IL 62704",
-      householdSize: "4",
-      monthlyIncome: "$2,850",
-      utilityProvider: "Springfield Electric and Power",
-      accountNumber: "8849201934",
-    };
-    setValues(carlos);
-    setJustFilled(new Set(Object.keys(carlos) as (keyof FormValues)[]));
-    setStatus("Voice session completed: Filled Carlos Rodriguez's application.");
+  const handleReset = () => {
+    const agent = new DmvVoiceAgent();
+    agentRef.current = agent;
+    const greeting = agent.getInitialGreeting();
+    setFormValues(EMPTY_DMV_FORM);
+    setHistory([...agent.history]);
+    setCurrentStage("GREETING_AND_TYPE");
+    setAgentReasoning("Agent reset to initial DL-14A intake state.");
+    void updatePdf(EMPTY_DMV_FORM, flattenPdf);
+    speak(greeting);
   };
 
-  const filledCount = FORM_FIELDS.filter(({ field }) => values[field]).length;
+  const progress = agentRef.current.getProgress();
 
   return (
-    <div className="min-h-screen bg-background px-4 py-8 lg:px-8">
+    <div className="min-h-screen bg-background px-4 py-6 lg:px-8">
       <main className="mx-auto w-full max-w-7xl">
-        <header className="mb-6 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        {/* Header */}
+        <header className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">FormBuddy</h1>
-            <p className="text-sm text-muted-foreground">
-              Utility Assistance voice agent — speak naturally and FormBuddy fills the official PDF
-              AcroForm.
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                Texas DPS Driver License Voice Intake
+              </h1>
+              <span className="rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-semibold text-blue-600 dark:text-blue-400">
+                DL-14A (Rev. 8/2025)
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Autonomous Voice Agent driven by PaddleOCR Key-Value Extraction — Document-Driven
+              Intake
             </p>
           </div>
 
-          <div className="mt-3 flex items-center gap-2 sm:mt-0">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
               <FileCheck className="h-3.5 w-3.5" />
-              PDF AcroForm Engine Active
+              PaddleOCR Schema: 29 Keys
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+              <Brain className="h-3.5 w-3.5" />
+              Autonomous Decision Loop Active
             </span>
           </div>
         </header>
 
+        {/* Main 2-Column Split */}
         <div className="grid gap-6 lg:grid-cols-12">
-          {/* Left: voice panel (5 columns on wide screen) */}
+          {/* Left: Autonomous Agent Console (5 columns) */}
           <section
-            aria-label="Voice panel"
-            className="flex h-fit flex-col gap-4 rounded-xl border border-border bg-card p-6 shadow-sm lg:sticky lg:top-8 lg:col-span-5"
+            aria-label="Autonomous Voice Agent"
+            className="flex h-fit flex-col gap-4 rounded-xl border border-border bg-card p-5 shadow-sm lg:sticky lg:top-6 lg:col-span-5"
           >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Volume2 className="h-4 w-4 text-primary" aria-hidden="true" />
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  Voice Agent
-                </h2>
+            {/* Stage & Progress */}
+            <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/40 p-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-foreground flex items-center gap-1.5">
+                  <Brain className="h-3.5 w-3.5 text-primary" />
+                  Current Goal: {STAGE_LABELS[currentStage]}
+                </span>
+                <span className="text-muted-foreground font-medium">
+                  {progress.filled}/{progress.total} keys ({progress.percentage}%)
+                </span>
               </div>
-              <span className="text-xs text-muted-foreground">
-                {filledCount}/{FORM_FIELDS.length} fields populated
-              </span>
-            </div>
-
-            <div className="rounded-lg rounded-tl-sm bg-muted p-4">
-              <div className="flex items-start gap-3">
-                <MessageCircle
-                  className="mt-0.5 h-5 w-5 shrink-0 text-primary"
-                  aria-hidden="true"
+              <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-primary h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${progress.percentage}%` }}
                 />
-                <p className="text-sm leading-relaxed text-foreground">“{WELCOME_SCRIPT}”</p>
               </div>
             </div>
 
-            <div className="flex flex-col items-center gap-3 py-2">
+            {/* Agent Decision Reasoning Callout */}
+            <div className="rounded-md border border-blue-500/20 bg-blue-500/5 p-2.5 text-xs text-blue-700 dark:text-blue-300">
+              <span className="font-bold">Agent Decision Reasoning: </span>
+              {agentReasoning}
+            </div>
+
+            {/* Microphone Button */}
+            <div className="flex flex-col items-center gap-2 py-1">
               <button
                 type="button"
                 onClick={toggle}
                 disabled={!supported}
                 aria-pressed={listening}
                 className={
-                  "flex h-20 w-20 items-center justify-center rounded-full border transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 " +
+                  "flex h-16 w-16 items-center justify-center rounded-full border transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 " +
                   (listening
                     ? "scale-105 border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/25 animate-pulse"
                     : "border-border bg-background text-foreground hover:bg-accent hover:scale-105")
                 }
-                aria-label={listening ? "Stop listening" : "Start listening"}
+                aria-label={listening ? "Stop listening" : "Start speaking to agent"}
               >
                 {listening ? (
-                  <CircleStop className="h-9 w-9" aria-hidden="true" />
+                  <CircleStop className="h-8 w-8" aria-hidden="true" />
                 ) : supported ? (
-                  <Mic className="h-9 w-9" aria-hidden="true" />
+                  <Mic className="h-8 w-8" aria-hidden="true" />
                 ) : (
-                  <MicOff className="h-9 w-9" aria-hidden="true" />
+                  <MicOff className="h-8 w-8" aria-hidden="true" />
                 )}
               </button>
-              <p className="text-sm font-medium text-muted-foreground" aria-live="polite">
+              <p className="text-xs font-medium text-muted-foreground">
                 {listening
-                  ? "Listening… speak naturally."
-                  : supported
-                    ? "Tap the mic, then just talk."
-                    : "Voice input needs Chrome, Edge, or Safari."}
+                  ? "Listening… speak naturally to the agent."
+                  : "Tap mic to answer the agent aloud."}
               </p>
               {interim && (
-                <p className="max-w-full rounded-md bg-muted px-3 py-1 text-sm italic text-muted-foreground">
+                <p className="max-w-full rounded-md bg-muted px-2.5 py-1 text-xs italic text-muted-foreground">
                   {interim}…
                 </p>
               )}
             </div>
 
-            {/* Spoken voice commands */}
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Voice Commands
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {VOICE_COMMANDS.map((command) => (
-                  <button
-                    key={command}
-                    type="button"
-                    onClick={() => handleTranscript(command)}
-                    className="rounded-full border border-border bg-background px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-accent"
-                  >
-                    “{command}”
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Quick Test Voice Prompts */}
-            <div className="rounded-lg border border-dashed border-border bg-muted/40 p-3">
-              <div className="mb-2 flex items-center justify-between">
-                <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  <Sparkles className="h-3 w-3 text-primary" />
-                  Quick Voice Simulations
+            {/* Conversational Dialogue Log */}
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Agent Dialogue Log
                 </p>
                 <button
                   type="button"
-                  onClick={handleSimulateFullCarlos}
-                  className="text-xs font-semibold text-primary underline hover:text-primary/80"
+                  onClick={handleReset}
+                  className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
                 >
-                  Fill Full Sample
+                  Reset Session
                 </button>
               </div>
-              <div className="flex flex-col gap-1.5">
-                {QUICK_TEST_PROMPTS.map((item) => (
-                  <button
-                    key={item.label}
-                    type="button"
-                    onClick={() => handleTranscript(item.text)}
-                    className="flex items-center justify-between rounded-md border border-border bg-background px-2.5 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-accent"
+
+              <div className="flex flex-col gap-2 max-h-[260px] overflow-y-auto rounded-lg border border-border bg-background p-3">
+                {history.map((turn, idx) => (
+                  <div
+                    key={idx}
+                    className={`flex flex-col gap-1 p-2 rounded-md text-xs ${
+                      turn.speaker === "agent"
+                        ? "bg-primary/5 border border-primary/10 text-foreground self-start"
+                        : "bg-muted text-foreground self-end max-w-[90%]"
+                    }`}
                   >
-                    <span className="font-medium text-primary">{item.label}:</span>
-                    <span className="truncate pl-2 text-muted-foreground">“{item.text}”</span>
-                  </button>
+                    <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
+                      <span className="font-semibold uppercase tracking-wide">
+                        {turn.speaker === "agent" ? "🤖 Texas DPS Agent" : "🗣️ Caller"}
+                      </span>
+                      <span>{turn.timestamp}</span>
+                    </div>
+                    <p className="leading-relaxed">{turn.text}</p>
+                    {turn.extractedFields && turn.extractedFields.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {turn.extractedFields.map((f) => (
+                          <span
+                            key={f}
+                            className="rounded bg-emerald-500/10 px-1.5 py-0.2 text-[10px] font-medium text-emerald-600 dark:text-emerald-400"
+                          >
+                            +{f}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
 
-            {showDocuments && (
-              <div className="rounded-lg border border-border bg-background p-4">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-primary" aria-hidden="true" />
-                  <h3 className="text-sm font-semibold text-foreground">Documents you'll need</h3>
-                </div>
-                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                  {DOCUMENTS.map((doc) => (
-                    <li key={doc}>{doc}</li>
-                  ))}
-                </ul>
+            {/* Quick Voice Simulations */}
+            <div className="rounded-lg border border-dashed border-border bg-muted/30 p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <Sparkles className="h-3 w-3 text-primary" />
+                  Quick Spoken Simulations
+                </p>
+                <button
+                  type="button"
+                  onClick={handleRunFullSimulation}
+                  className="text-xs font-semibold text-primary underline hover:text-primary/80"
+                >
+                  Simulate Full Interview
+                </button>
               </div>
-            )}
-
-            <p
-              className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
-              aria-live="polite"
-            >
-              {status}
-            </p>
+              <div className="flex flex-col gap-1.5">
+                {SIMULATED_CONVERSATION_STEPS.map((step) => (
+                  <button
+                    key={step.step}
+                    type="button"
+                    onClick={() => handleSpokenInput(step.callerText)}
+                    className="flex items-center justify-between rounded-md border border-border bg-background px-2 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-accent"
+                  >
+                    <span className="font-medium text-primary shrink-0">{step.step}:</span>
+                    <span className="truncate pl-2 text-muted-foreground">“{step.callerText}”</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </section>
 
-          {/* Right: form or PDF panel (7 columns on wide screen) */}
+          {/* Right: Texas DL-14A PDF & Form Preview (7 columns) */}
           <section
-            aria-label="Application display"
-            className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6 shadow-sm lg:col-span-7"
+            aria-label="Official Document and Form"
+            className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5 shadow-sm lg:col-span-7"
           >
-            {/* View Switcher & Action Header */}
+            {/* View Controls Header */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-2">
-                <div className="inline-flex rounded-lg border border-border p-1 bg-muted/40">
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("form")}
-                    className={
-                      "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all " +
-                      (viewMode === "form"
-                        ? "bg-background text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground")
-                    }
-                  >
-                    <FileText className="h-3.5 w-3.5" />
-                    Web Form
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("pdf")}
-                    className={
-                      "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all " +
-                      (viewMode === "pdf"
-                        ? "bg-background text-primary shadow-sm"
-                        : "text-muted-foreground hover:text-foreground")
-                    }
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                    Official PDF Preview
-                  </button>
-                </div>
+              <div className="inline-flex rounded-lg border border-border p-1 bg-muted/40">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("pdf")}
+                  className={
+                    "inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-semibold transition-all " +
+                    (viewMode === "pdf"
+                      ? "bg-background text-primary shadow-sm"
+                      : "text-muted-foreground hover:text-foreground")
+                  }
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  Official Texas DL-14A PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("form")}
+                  className={
+                    "inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-semibold transition-all " +
+                    (viewMode === "form"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground")
+                  }
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  Extracted Fields View
+                </button>
               </div>
 
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => refreshPdf(values, flattenPdf)}
+                  onClick={() => updatePdf(formValues, flattenPdf)}
                   disabled={isGeneratingPdf}
-                  title="Refresh PDF"
-                  className="inline-flex items-center gap-1 rounded-md border border-input bg-background p-2 text-xs font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50"
-                  aria-label="Refresh PDF"
+                  title="Re-render PDF"
+                  className="inline-flex items-center gap-1 rounded-md border border-input bg-background p-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+                  aria-label="Re-render PDF"
                 >
                   <RefreshCw className={`h-3.5 w-3.5 ${isGeneratingPdf ? "animate-spin" : ""}`} />
                 </button>
                 <button
                   type="button"
                   onClick={handleDownload}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
                 >
                   <Download className="h-3.5 w-3.5" />
-                  Download PDF
+                  Download DL-14A PDF
                 </button>
               </div>
             </div>
 
-            {/* View Mode 1: Web Form */}
-            {viewMode === "form" && (
-              <div className="flex flex-col gap-6">
-                <div className="flex items-center justify-between border-b border-border pb-3">
-                  <div>
-                    <h2 className="text-lg font-semibold text-foreground">
-                      Utility Assistance Application
-                    </h2>
-                    <p className="text-xs text-muted-foreground">
-                      Mapped automatically into official AcroForm document (Form UAP-2026-V1)
-                    </p>
-                  </div>
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {filledCount}/{FORM_FIELDS.length} filled
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  {FORM_FIELDS.map(({ field, type, placeholder, wide }) => (
-                    <div key={field} className={wide ? "sm:col-span-2" : undefined}>
-                      <label
-                        htmlFor={`field-${field}`}
-                        className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-foreground"
-                      >
-                        {FIELD_LABELS[field]}
-                        {justFilled.has(field) && values[field] && (
-                          <Check className="h-4 w-4 text-primary" aria-hidden="true" />
-                        )}
-                      </label>
-                      <input
-                        id={`field-${field}`}
-                        type={type}
-                        value={values[field]}
-                        onChange={(e) => {
-                          setValues((current) => ({
-                            ...current,
-                            [field]: e.target.value,
-                          }));
-                          setJustFilled((current) => {
-                            const next = new Set(current);
-                            next.delete(field);
-                            return next;
-                          });
-                        }}
-                        placeholder={placeholder}
-                        className={
-                          "w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
-                          (justFilled.has(field) && values[field]
-                            ? "border-primary ring-1 ring-primary"
-                            : "")
-                        }
-                      />
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        try {
-                          localStorage.setItem(DRAFT_KEY, JSON.stringify(values));
-                          setStatus("Your application is saved for later on this device.");
-                        } catch {
-                          setStatus("Couldn't save the draft in this browser.");
-                        }
-                      }}
-                      className="rounded-md border border-input bg-background px-3.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
-                    >
-                      Save for later
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setValues(EMPTY_FORM);
-                        setJustFilled(new Set());
-                        setStatus("Form cleared.");
-                      }}
-                      className="rounded-md border border-input bg-background px-3.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
-                    >
-                      Clear
-                    </button>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("pdf")}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-                  >
-                    View Official PDF &rarr;
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* View Mode 2: PDF Live Document Preview */}
+            {/* Mode 1: PDF Live View */}
             {viewMode === "pdf" && (
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/30 p-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between rounded-lg border border-border bg-muted/20 px-3 py-2 text-xs">
                   <div className="flex items-center gap-2">
                     <FileCheck className="h-4 w-4 text-primary" />
-                    <div>
-                      <p className="text-xs font-semibold text-foreground">
-                        Live AcroForm Document Preview
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">
-                        Official State LIHEAP Form UAP-2026-V1 • Updated live from voice inputs
-                      </p>
-                    </div>
+                    <span className="font-semibold text-foreground">
+                      Texas DPS Form DL-14A • Live AcroForm Stamping
+                    </span>
                   </div>
-
-                  <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground cursor-pointer">
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
                     <input
                       type="checkbox"
                       checked={flattenPdf}
                       onChange={(e) => setFlattenPdf(e.target.checked)}
                       className="rounded border-border text-primary focus:ring-primary h-3.5 w-3.5"
                     />
-                    <span>Flatten fields (read-only)</span>
+                    <span>Flatten fields</span>
                   </label>
                 </div>
 
-                {/* PDF Iframe Viewer */}
-                <div className="relative w-full h-[620px] rounded-lg border border-border overflow-hidden bg-slate-900 shadow-inner">
+                {/* PDF Viewer */}
+                <div className="relative w-full h-[640px] rounded-lg border border-border overflow-hidden bg-slate-900 shadow-inner">
                   {pdfBlobUrl ? (
                     <iframe
                       src={pdfBlobUrl}
-                      title="Filled Utility Assistance PDF Document"
+                      title="Texas DPS Form DL-14A Application"
                       className="h-full w-full border-none"
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
-                      Generating PDF Document...
+                    <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
+                      Rendering Texas DL-14A Document...
                     </div>
                   )}
                 </div>
+              </div>
+            )}
 
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>
-                    {filledCount} of {FORM_FIELDS.length} fields filled from voice session
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleDownload}
-                    className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                    Download Official Filing Copy
-                  </button>
+            {/* Mode 2: Form Fields View */}
+            {viewMode === "form" && (
+              <div className="flex flex-col gap-4 max-h-[660px] overflow-y-auto pr-1">
+                <div className="rounded-lg border border-border p-4 bg-background">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
+                    1. Application Type & Class
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <span className="text-muted-foreground">Type:</span>
+                      <p className="font-semibold">{formValues.appType || "(pending)"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Transaction:</span>
+                      <p className="font-semibold">{formValues.transactionType || "(pending)"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Class:</span>
+                      <p className="font-semibold">{formValues.licenseClass}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border p-4 bg-background">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
+                    2. Applicant Personal Information
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <span className="text-muted-foreground">Name:</span>
+                      <p className="font-semibold">
+                        {formValues.firstName || formValues.lastName
+                          ? `${formValues.firstName} ${formValues.lastName}`
+                          : "(pending)"}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Date of Birth:</span>
+                      <p className="font-semibold">{formValues.dateOfBirth || "(pending)"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Sex:</span>
+                      <p className="font-semibold">{formValues.sex || "(pending)"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">SSN:</span>
+                      <p className="font-semibold">{formValues.ssn || "(pending)"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border p-4 bg-background">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
+                    3. Physical Card Descriptors
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    <div>
+                      <span className="text-muted-foreground">Height:</span>
+                      <p className="font-semibold">
+                        {formValues.heightFt
+                          ? `${formValues.heightFt}' ${formValues.heightIn}"`
+                          : "(pending)"}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Weight:</span>
+                      <p className="font-semibold">
+                        {formValues.weightLbs ? `${formValues.weightLbs} lbs` : "(pending)"}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Eye Color:</span>
+                      <p className="font-semibold">{formValues.eyeColor || "(pending)"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Hair Color:</span>
+                      <p className="font-semibold">{formValues.hairColor || "(pending)"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border p-4 bg-background">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
+                    4. Contact & Address
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="sm:col-span-2">
+                      <span className="text-muted-foreground">Residence:</span>
+                      <p className="font-semibold">{formValues.residenceAddress || "(pending)"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">City, Zip:</span>
+                      <p className="font-semibold">
+                        {formValues.city
+                          ? `${formValues.city}, ${formValues.zipCode}`
+                          : "(pending)"}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">County:</span>
+                      <p className="font-semibold">{formValues.county || "(pending)"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Phone:</span>
+                      <p className="font-semibold">{formValues.phone || "(pending)"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Email:</span>
+                      <p className="font-semibold">{formValues.email || "(pending)"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border p-4 bg-background">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
+                    5. Statutory Eligibility
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <span className="text-muted-foreground">U.S. Citizen:</span>
+                      <p className="font-semibold">
+                        {formValues.isCitizen === null
+                          ? "(pending)"
+                          : formValues.isCitizen
+                            ? "YES"
+                            : "NO"}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Voter Registration:</span>
+                      <p className="font-semibold">
+                        {formValues.registerVote === null
+                          ? "(pending)"
+                          : formValues.registerVote
+                            ? "YES"
+                            : "NO"}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Veteran:</span>
+                      <p className="font-semibold">
+                        {formValues.isVeteran === null
+                          ? "(pending)"
+                          : formValues.isVeteran
+                            ? "YES"
+                            : "NO"}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Organ Donor:</span>
+                      <p className="font-semibold">
+                        {formValues.organDonor === null
+                          ? "(pending)"
+                          : formValues.organDonor
+                            ? "YES"
+                            : "NO"}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
