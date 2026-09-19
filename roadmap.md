@@ -12,3 +12,9 @@
 
 ## Architecture page (judge-facing)
 - [x] "Architecture" nav item on the app page + separate /architecture page: system flow diagram (2 rows desktop / vertical mobile), service map cards, agent workflow (drafted by Lovable — user may supply exact wording)
+
+## Voice interview from hardwired JSON (Shreya)
+- [ ] Read questions from src/lib/dl-14a-schema.json only (sections[].fields[]); ask field.prompt one at a time in section order
+- [ ] Validate with field.type / field.options / field.required; save { key, value } per answer on the session
+- [ ] Apply the system prompt + skip rules (awaiting paste)
+- [ ] "start" / existing CTA begins the interview immediately; no new fields, no UI redesign
