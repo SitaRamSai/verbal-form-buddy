@@ -1,10 +1,11 @@
 # Roadmap
 
 - [x] Add welcome script to landing page (approved plan)
-- [x] Build split-view page: voice panel on left, Utility Assistance form on right; speech fills the form
+- [x] Build split-view page: voice panel on left, real PDF form on right; speech fills the form
+- [x] Switch to the project's real form: Texas Driver License / ID Card Application (DL-14A)
+- [ ] Confirm whether the welcome script wording should mention DL-14A instead of Utility Assistance
 
 ## Team split (3 parts)
-- [ ] Person A: source forms + test data (waiting on them)
+- [ ] Person A: source forms + test data (DL-14A received)
 - [x] Voice: speech recognition + form filling (this app) — owned by user
 - [ ] OCR correction: scan/OCR a paper form, review + correct extracted fields (third person) — not started
-

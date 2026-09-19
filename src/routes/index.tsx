@@ -23,17 +23,17 @@ import { PdfPreview } from "@/components/pdf-preview";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "FormBuddy — Voice Agent for Utility Assistance" },
+      { title: "FormBuddy — Voice Agent for the Texas DL-14A Application" },
       {
         name: "description",
         content:
-          "Speak naturally and FormBuddy fills out the Utility Assistance application for you, one step at a time.",
+          "Speak naturally and FormBuddy fills out the Texas Driver License / ID Card application (Form DL-14A) for you, one step at a time.",
       },
-      { property: "og:title", content: "FormBuddy — Voice Agent for Utility Assistance" },
+      { property: "og:title", content: "FormBuddy — Voice Agent for the Texas DL-14A Application" },
       {
         property: "og:description",
         content:
-          "Speak naturally and FormBuddy fills out the Utility Assistance application for you.",
+          "Speak naturally and FormBuddy fills out the Texas Driver License / ID Card application for you.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
