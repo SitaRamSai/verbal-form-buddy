@@ -47,34 +47,8 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-const GREETING =
-  "Hi, and welcome to FormBuddy. I'm your voice helper — I'll read the questions out loud and fill the form in as you answer.";
-
-const FORM_QUESTION = "Which form would you like to work on today?";
-
-const AVAILABLE_FORMS = [
-  {
-    id: "dl-14a",
-    name: "Texas Driver License / ID Card Application",
-    code: "Form DL-14A",
-    available: true,
-  },
-  {
-    id: "utility",
-    name: "Utility Assistance Application",
-    code: "Coming soon",
-    available: false,
-  },
-  {
-    id: "snap",
-    name: "Food Benefits (SNAP) Application",
-    code: "Coming soon",
-    available: false,
-  },
-];
-
 const WELCOME_SCRIPT =
-  "Welcome to FormBuddy. We'll complete the Texas Driver License / ID Card application together. You can say 'repeat,' 'why do they need this,' 'save for later,' or 'what documents do I need?'";
+  "Welcome to FormBuddy. We'll complete the Utility Assistance application together. There are six steps. You can say 'repeat,' 'why do they need this,' 'save for later,' or 'what documents do I need?'";
 
 const VOICE_COMMANDS = [
   "repeat",
@@ -82,32 +56,6 @@ const VOICE_COMMANDS = [
   "save for later",
   "what documents do I need?",
 ];
-
-const FIELD_QUESTIONS: Record<keyof FormValues, string> = {
-  lastName: "What is your last name?",
-  firstName: "What is your first name?",
-  middleName: "What is your middle name? Say 'skip' if you don't have one.",
-  dateOfBirth: "What is your date of birth?",
-  ssn: "What is your Social Security number?",
-  heightFeet: "How tall are you, in feet and inches?",
-  heightInches: "And how many inches?",
-  weight: "About how much do you weigh, in pounds?",
-  placeOfBirthCity: "Which city were you born in?",
-  placeOfBirthState: "And which state were you born in?",
-  fathersLastName: "What is your father's last name?",
-  mothersMaidenName: "What is your mother's maiden name?",
-  residenceAddress: "What is the street address where you live?",
-  city: "Which city do you live in?",
-  state: "Which state do you live in?",
-  zipCode: "What is your ZIP code?",
-  county: "Which county do you live in?",
-  phone: "What is your primary phone number?",
-  cellPhone: "What is your cell phone number?",
-  email: "What is your email address?",
-  emergencyName: "Who should we contact in an emergency?",
-  emergencyPhone: "What is that person's phone number?",
-  emergencyAddress: "What is that person's address?",
-};
 
 const DOCUMENTS = [
   "Proof of identity (birth certificate or passport)",
@@ -171,13 +119,9 @@ const FORM_FIELDS: { field: keyof FormValues; type: string; placeholder: string;
   { field: "emergencyAddress", type: "text", placeholder: "e.g. 10 Oak Ave, Austin", wide: true },
 ];
 
-type Stage = "welcome" | "choosing" | "filling";
-
 function Index() {
   const [values, setValues] = useState<FormValues>(EMPTY_FORM);
-  const [stage, setStage] = useState<Stage>("welcome");
-  const [skipped, setSkipped] = useState<Set<keyof FormValues>>(new Set());
-  const [status, setStatus] = useState(GREETING);
+  const [status, setStatus] = useState(WELCOME_SCRIPT);
   const [justFilled, setJustFilled] = useState<Set<keyof FormValues>>(new Set());
   const [showDocuments, setShowDocuments] = useState(false);
   const [showReview, setShowReview] = useState(false);
@@ -186,37 +130,8 @@ function Index() {
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [aiThinking, setAiThinking] = useState(false);
   const lastFilledRef = useRef<(keyof FormValues)[]>([]);
-  const lastAskedRef = useRef<keyof FormValues | null>(null);
-
-  const startConversation = useCallback(() => {
-    setStage("choosing");
-    setStatus(FORM_QUESTION);
-    speak(`${GREETING} ${FORM_QUESTION}`);
-  }, []);
-
-  const chooseForm = useCallback(() => {
-    setStage("filling");
-    setStatus(WELCOME_SCRIPT);
-    speak(WELCOME_SCRIPT);
-    lastAskedRef.current = null;
-  }, []);
 
   const handleTranscript = useCallback((text: string) => {
-    if (stage === "welcome") {
-      startConversation();
-      return;
-    }
-    if (stage === "choosing") {
-      if (/driver|licence|license|texas|d\s?l\s?-?\s?14|identification|id card|first|that one|yes/i.test(text)) {
-        chooseForm();
-      } else {
-        setStatus(
-          `I heard: “${text}”. Right now I can help with the Texas Driver License / ID Card application — say “Texas driver license” to start.`,
-        );
-      }
-      return;
-    }
-
     const command = detectCommand(text);
     if (command === "repeat") {
       speak(WELCOME_SCRIPT);
@@ -244,19 +159,6 @@ function Index() {
       } catch {
         setStatus("Couldn't save the draft in this browser.");
       }
-      return;
-    }
-
-    if (/^\s*(skip|next question|i don'?t have one|none)\b/i.test(text)) {
-      setSkipped((current) => {
-        const next = new Set(current);
-        const pending = FORM_FIELDS.find(
-          ({ field }) => !values[field] && !current.has(field),
-        );
-        if (pending) next.add(pending.field);
-        return next;
-      });
-      setStatus("Skipped — moving on.");
       return;
     }
 
@@ -303,23 +205,10 @@ function Index() {
         if (keys.length === 0) setStatus(`I heard: “${text}”, but the AI couldn't be reached.`);
       })
       .finally(() => setAiThinking(false));
-  }, [values, stage, startConversation, chooseForm]);
+  }, [values]);
 
   const { supported, listening, interim, toggle } =
     useSpeechRecognition(handleTranscript);
-
-  // The question FormBuddy is on right now: the first field still empty.
-  const currentField =
-    stage === "filling"
-      ? (FORM_FIELDS.find(({ field }) => !values[field] && !skipped.has(field))?.field ?? null)
-      : null;
-
-  // Read each new question aloud once.
-  useEffect(() => {
-    if (!currentField || lastAskedRef.current === currentField) return;
-    lastAskedRef.current = currentField;
-    speak(FIELD_QUESTIONS[currentField]);
-  }, [currentField]);
 
   // Restore a saved draft on first load (client only).
   useEffect(() => {
@@ -402,66 +291,10 @@ function Index() {
                   aria-hidden="true"
                 />
                 <p className="text-sm leading-relaxed text-foreground">
-                  {stage === "welcome"
-                    ? `“${GREETING}”`
-                    : stage === "choosing"
-                      ? `“${FORM_QUESTION}”`
-                      : currentField
-                        ? `“${FIELD_QUESTIONS[currentField]}”`
-                        : "“That's everything I need. Please review your answers below, then download the form.”"}
+                  “{WELCOME_SCRIPT}”
                 </p>
               </div>
             </div>
-
-            {stage === "welcome" && (
-              <button
-                type="button"
-                onClick={startConversation}
-                className="rounded-md border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-              >
-                Start
-              </button>
-            )}
-
-            {stage === "choosing" && (
-              <ul className="flex flex-col gap-2">
-                {AVAILABLE_FORMS.map((form) => (
-                  <li key={form.id}>
-                    <button
-                      type="button"
-                      onClick={form.available ? chooseForm : undefined}
-                      disabled={!form.available}
-                      className="w-full rounded-lg border border-border bg-background px-4 py-3 text-left transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <span className="block text-sm font-medium text-foreground">
-                        {form.name}
-                      </span>
-                      <span className="block text-xs text-muted-foreground">
-                        {form.code}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            {stage === "filling" && currentField && (
-              <div className="flex items-center justify-between gap-3 rounded-lg border border-primary bg-accent px-4 py-3">
-                <p className="text-sm font-medium text-foreground">
-                  {FIELD_LABELS[currentField]}
-                </p>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSkipped((current) => new Set(current).add(currentField))
-                  }
-                  className="shrink-0 rounded-md border border-input bg-background px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent"
-                >
-                  Skip
-                </button>
-              </div>
-            )}
-
 
             <div className="flex flex-col items-center gap-3 py-2">
               <button
