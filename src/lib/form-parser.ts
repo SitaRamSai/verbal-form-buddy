@@ -81,9 +81,9 @@ export function normalizeNumberWords(input: string): string {
     for (let i = 0; i < run.length; i++) {
       const value = run[i];
       if (value === 100 && groups.length > 0) {
-        groups[groups.length - 1] *= 100;
-      } else if (value >= 20 && i + 1 < run.length && run[i + 1] > 0 && run[i + 1] < 10) {
-        groups.push(value + run[i + 1]);
+        groups[groups.length - 1] = (groups[groups.length - 1] ?? 0) * 100;
+      } else if (value >= 20 && i + 1 < run.length && (run[i + 1] ?? 0) > 0 && (run[i + 1] ?? 0) < 10) {
+        groups.push(value + run[i + 1]!);
         i++;
       } else {
         groups.push(value);
