@@ -123,8 +123,12 @@ export function normalizeNumberWords(input: string): string {
     const groups: number[] = [];
     for (let i = 0; i < run.length; i++) {
       const value = run[i] ?? 0;
+      const last = groups[groups.length - 1] ?? 0;
       if (value === 100 && groups.length > 0) {
-        groups[groups.length - 1] = (groups[groups.length - 1] ?? 0) * 100;
+        groups[groups.length - 1] = last * 100;
+      } else if (groups.length > 0 && last >= 100 && value < 100) {
+        // "one hundred fifty" -> 150
+        groups[groups.length - 1] = last + value;
       } else if (value >= 20 && (run[i + 1] ?? -1) > 0 && (run[i + 1] ?? -1) < 10) {
         groups.push(value + (run[i + 1] ?? 0));
         i++;
@@ -245,10 +249,17 @@ interface FieldRule {
 
 const text = (v: string) => v.replace(/\s+/g, " ").trim();
 
+const titleCase = (v: string) =>
+  text(v)
+    .split(" ")
+    .map((w) => (/^\d/.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(" ");
+
 const RULES: FieldRule[] = [
   {
     patterns: [
-      /(?:my\s+)?(?:full\s+)?name\s+is\s+([^.,!?;]+)/i,
+      // "name is ..." but not "maiden name is", "last name is", etc.
+      /(?<!maiden\s)(?<!last\s)(?<!first\s)(?<!middle\s)(?<!contact\s)(?:my\s+)?(?:full\s+)?name\s+is\s+([^.,!?;]+)/i,
       /\bi\s+am\s+called\s+([^.,!?;]+)/i,
     ],
     apply: splitName,
