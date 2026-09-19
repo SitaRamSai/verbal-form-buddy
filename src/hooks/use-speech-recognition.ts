@@ -151,6 +151,7 @@ export function speak(text: string) {
       let pending = new Uint8Array(0);
 
       const playChunk = (incoming: Uint8Array) => {
+        if (token !== speakToken) return;
         const bytes = new Uint8Array(pending.length + incoming.length);
         bytes.set(pending);
         bytes.set(incoming, pending.length);
@@ -170,6 +171,10 @@ export function speak(text: string) {
           playhead = Math.max(playhead, ctx.currentTime);
         }
         source.start(playhead);
+        activeSources.push(source);
+        source.onended = () => {
+          activeSources = activeSources.filter((s) => s !== source);
+        };
         playhead += buffer.duration;
       };
 
@@ -193,9 +198,11 @@ export function speak(text: string) {
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
+        if (token !== speakToken) return;
         parser.feed(value);
       }
-    } catch {
+    } catch (error) {
+      if ((error as Error)?.name === "AbortError" || token !== speakToken) return;
       // AI voice unavailable — fall back to the browser's built-in voice.
       speakWithBrowserVoice(text);
     }
