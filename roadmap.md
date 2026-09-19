@@ -18,3 +18,4 @@
 - [ ] Validate with field.type / field.options / field.required; save { key, value } per answer on the session
 - [ ] Apply the system prompt + skip rules (awaiting paste)
 - [ ] "start" / existing CTA begins the interview immediately; no new fields, no UI redesign
+- [ ] Skip the "which form?" step — only one form exists; begin the interview straight after the greeting
