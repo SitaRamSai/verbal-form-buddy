@@ -571,7 +571,49 @@ function Index() {
 
             {stage === "filling" && (
               <>
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2">
+              <span className="text-sm text-foreground">
+                {guided
+                  ? currentField
+                    ? `Question: ${FIELD_LABELS[currentField]}`
+                    : "Guided questions"
+                  : "Free speech — say anything, in any order"}
+              </span>
+              <div className="flex gap-2">
+                {guided && currentField && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      skippedRef.current.add(currentField);
+                      askNext(values);
+                    }}
+                    className="rounded-full border border-border bg-background px-3 py-1 text-xs text-foreground transition-colors hover:bg-accent"
+                  >
+                    Skip
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !guided;
+                    guidedRef.current = next;
+                    setGuided(next);
+                    if (next) askNext(values);
+                    else {
+                      currentFieldRef.current = null;
+                      setCurrentField(null);
+                      setStatus("Free speech mode — tell me anything and I'll place it.");
+                    }
+                  }}
+                  className="rounded-full border border-border bg-background px-3 py-1 text-xs text-foreground transition-colors hover:bg-accent"
+                >
+                  {guided ? "Switch to free speech" : "Switch to guided questions"}
+                </button>
+              </div>
+            </div>
+
             <div className="flex flex-col items-center gap-3 py-2">
+
               <button
                 type="button"
                 onClick={toggle}
