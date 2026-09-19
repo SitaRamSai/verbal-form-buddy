@@ -360,7 +360,66 @@ function ArchitecturePage() {
             <span>Prototype built for the hackathon — demo data only, nothing stored.</span>
           </div>
         </section>
+
+        {/* 4. As built today */}
+        <section aria-labelledby="as-built">
+          <h2 id="as-built" className="mb-4 text-xl font-bold tracking-tight text-foreground">
+            4. As built today
+          </h2>
+          <p className="mb-6 max-w-3xl text-sm text-muted-foreground">
+            The diagram above is the target design. This is the pipeline the hackathon prototype
+            actually runs, end to end, for the Texas DL-14A.
+          </p>
+          <ol className="grid gap-3 md:grid-cols-2">
+            {BUILT_PIPELINE.map((node, index) => {
+              const Icon = node.icon;
+              return (
+                <li
+                  key={node.label}
+                  className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 shadow-sm"
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent">
+                    <Icon className="h-4 w-4 text-primary" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">
+                      {index + 1}. {node.label}
+                    </h3>
+                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                      {node.detail}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+
+        {/* 5. Assumptions & limitations */}
+        <section aria-labelledby="assumptions">
+          <h2 id="assumptions" className="mb-4 text-xl font-bold tracking-tight text-foreground">
+            5. Assumptions and limitations
+          </h2>
+          <p className="mb-6 max-w-3xl text-sm text-muted-foreground">
+            What this prototype takes for granted, and where it deliberately stops.
+          </p>
+          <ul className="grid gap-4 md:grid-cols-2">
+            {ASSUMPTIONS.map((item) => (
+              <li
+                key={item.title}
+                className="flex gap-3 rounded-xl border border-border bg-card p-5 shadow-sm"
+              >
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">{item.title}</h3>
+                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{item.body}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
       </main>
+
     </div>
   );
 }
