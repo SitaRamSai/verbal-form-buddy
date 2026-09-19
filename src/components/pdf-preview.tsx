@@ -41,7 +41,8 @@ export function PdfPreview({ bytes }: Props) {
       if (!context) return;
       await page.render({ canvas, canvasContext: context, viewport }).promise;
       if (!cancelled) setReady(true);
-    })().catch(() => {
+    })().catch((e) => {
+      console.error("pdf-preview", e);
       if (!cancelled) setError("Couldn't display the application PDF.");
     });
 
