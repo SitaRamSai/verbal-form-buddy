@@ -164,7 +164,7 @@ function Index() {
       void extractDmvFields({ data: { transcript: spokenText } })
         .then((result) => {
           if (Object.keys(result.values).length === 0) {
-            speak(decision.agentUtterance);
+            void say(decision.agentUtterance);
             return;
           }
           const merged = agent.applyExtractedValues(result.values);
@@ -173,28 +173,43 @@ function Index() {
           setCurrentStage(merged.nextStage);
           setAgentReasoning(merged.decisionReasoning);
           void updatePdf(merged.updatedValues, flattenPdf);
-          speak(merged.agentUtterance);
+          void say(merged.agentUtterance);
         })
         .catch(() => {
-          speak(decision.agentUtterance);
+          void say(decision.agentUtterance);
         })
         .finally(() => setAiThinking(false));
     },
-    [flattenPdf, updatePdf],
+    [flattenPdf, updatePdf, say],
   );
 
 
-  const { supported, listening, interim, toggle } = useSpeechRecognition(handleSpokenInput);
+  const { supported, listening, interim, toggle, pause, resume } =
+    useSpeechRecognition(handleSpokenInput);
+  micControlRef.current = { pause, resume };
 
   // The agent stays silent until the user taps the mic for the first time.
   const startedRef = useRef(false);
   const handleMicToggle = useCallback(() => {
     if (!startedRef.current) {
       startedRef.current = true;
-      speak(agentRef.current.getInitialGreeting());
+      void say(agentRef.current.getInitialGreeting());
+      return;
     }
     toggle();
-  }, [toggle]);
+  }, [toggle, say]);
+
+  // Keyboard answers — type instead of speaking.
+  const handleTypedSubmit = useCallback(
+    (event: React.FormEvent) => {
+      event.preventDefault();
+      const text = typedAnswer.trim();
+      if (!text) return;
+      setTypedAnswer("");
+      handleSpokenInput(text);
+    },
+    [typedAnswer, handleSpokenInput],
+  );
 
 
   const handleDownload = async () => {
