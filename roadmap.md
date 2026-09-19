@@ -9,3 +9,6 @@
 - [ ] Person A: source forms + test data (DL-14A received)
 - [x] Voice: speech recognition + form filling (this app) — owned by user
 - [ ] OCR correction: scan/OCR a paper form, review + correct extracted fields (third person) — not started
+
+## Architecture page (judge-facing)
+- [x] "Architecture" nav item on the app page + separate /architecture page: system flow diagram (2 rows desktop / vertical mobile), service map cards, agent workflow (drafted by Lovable — user may supply exact wording)
