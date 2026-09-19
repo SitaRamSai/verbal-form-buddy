@@ -17,7 +17,8 @@ import {
   type FormValues,
 } from "@/lib/form-parser";
 import { speak, useSpeechRecognition } from "@/hooks/use-speech-recognition";
-import { fillPdf } from "@/lib/pdf-form";
+import { fillPdf, pdfBlobUrl } from "@/lib/pdf-form";
+import { PdfPreview } from "@/components/pdf-preview";
 
 export const Route = createFileRoute("/")({
   head: () => ({
