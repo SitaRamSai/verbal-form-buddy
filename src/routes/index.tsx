@@ -441,13 +441,11 @@ function Index() {
                 <p className="text-sm leading-relaxed text-foreground">
                   {stage === "welcome"
                     ? `“${INTRO_GREETING}”`
-                    : stage === "choose"
-                      ? `“${FORM_QUESTION}”`
-                      : stage === "basics"
-                        ? "“Let's start with your basic info. Fill it in or use your browser's autofill — I'll ask about the rest by voice.”"
-                        : guided && currentField
-                          ? `“${QUESTIONS[currentField]}”`
-                          : `“${WELCOME_SCRIPT}”`}
+                    : stage === "basics"
+                      ? "“Let's start with your basic info. Fill it in or use your browser's autofill — I'll ask about the rest by voice.”"
+                      : guided && currentField
+                        ? `“${QUESTIONS[currentField]}”`
+                        : `“${WELCOME_SCRIPT}”`}
                 </p>
               </div>
             </div>
@@ -456,9 +454,11 @@ function Index() {
               <button
                 type="button"
                 onClick={() => {
-                  setStage("choose");
-                  setStatus(FORM_QUESTION);
-                  speak(`${INTRO_GREETING} ${FORM_QUESTION}`);
+                  setStage("basics");
+                  const line =
+                    "Let's start with your basic info. Fill it in or use your browser's autofill, then we'll continue by voice.";
+                  setStatus(line);
+                  speak(`${INTRO_GREETING} ${line}`);
                 }}
                 className="rounded-md bg-primary px-4 py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
               >
@@ -466,34 +466,6 @@ function Index() {
               </button>
             )}
 
-            {stage === "choose" && (
-              <ul className="flex flex-col gap-2">
-                {FORM_OPTIONS.map((option) => (
-                  <li key={option.label}>
-                    <button
-                      type="button"
-                      disabled={!option.available}
-                      onClick={() => {
-                        setStage("basics");
-                        const line =
-                          "Let's start with your basic info. Fill it in or use your browser's autofill, then we'll continue by voice.";
-                        setStatus(line);
-                        speak(line);
-                      }}
-                      className={
-                        "w-full rounded-lg border p-3 text-left transition-colors " +
-                        (option.available
-                          ? "border-border bg-background text-foreground hover:bg-accent"
-                          : "cursor-not-allowed border-border bg-muted text-muted-foreground opacity-70")
-                      }
-                    >
-                      <span className="block text-sm font-medium">{option.label}</span>
-                      <span className="block text-xs text-muted-foreground">{option.note}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
 
             {stage === "basics" && (
               <div className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4">
