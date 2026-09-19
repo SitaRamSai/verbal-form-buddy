@@ -247,6 +247,19 @@ function Index() {
       return;
     }
 
+    if (/^\s*(skip|next question|i don'?t have one|none)\b/i.test(text)) {
+      setSkipped((current) => {
+        const next = new Set(current);
+        const pending = FORM_FIELDS.find(
+          ({ field }) => !values[field] && !current.has(field),
+        );
+        if (pending) next.add(pending.field);
+        return next;
+      });
+      setStatus("Skipped — moving on.");
+      return;
+    }
+
     const parsed = parseTranscript(text);
     const keys = Object.keys(parsed) as (keyof FormValues)[];
     if (keys.length > 0) {
