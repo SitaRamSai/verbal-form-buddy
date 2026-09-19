@@ -6,8 +6,8 @@
 - [ ] Confirm whether the welcome script wording should mention DL-14A instead of Utility Assistance
 
 ## Guided conversation flow
-- [ ] Welcome greeting → "which form would you like to work on?" (TX DL-14A only) → question-by-question filling
-- [ ] Use the OCR-extracted DL-14A schema (src/lib/dl-14a-schema.json) as the source of question prompts
+- [x] Welcome greeting → "which form would you like to work on?" (TX DL-14A only) → question-by-question filling
+- [x] Use the OCR-extracted DL-14A schema (src/lib/dl-14a-schema.json) as the source of question prompts
 - [ ] Later: cover schema fields the PDF filler doesn't map yet (sex, eye/hair colour, race, ethnicity, eligibility questions, application type/class)
 
 ## Team split (3 parts)
