@@ -155,14 +155,14 @@ export function stopSpeaking() {
  * Speaks with a natural AI voice (streamed from our /api/tts route).
  * Falls back to the browser's built-in voice if the AI voice is unavailable.
  */
-export function speak(text: string) {
-  if (typeof window === "undefined") return;
+export function speak(text: string): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
   stopSpeaking();
   const token = speakToken;
   const controller = new AbortController();
   activeController = controller;
 
-  void (async () => {
+  return (async () => {
     try {
       const res = await fetch("/api/tts", {
         method: "POST",
