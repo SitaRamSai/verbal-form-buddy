@@ -30,6 +30,7 @@ import {
   type InterviewStage,
 } from "@/lib/dmv-agent";
 import { createTexasDmvPdf, createDmvPdfBlobUrl, downloadDmvPdf } from "@/lib/dmv-pdf-service";
+import { extractDmvFields } from "@/lib/extract-dmv.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
