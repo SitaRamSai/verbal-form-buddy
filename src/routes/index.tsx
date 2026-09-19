@@ -10,6 +10,7 @@ import {
   MicOff,
   MessageCircle,
   ShieldCheck,
+  UserRound,
   Volume2,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -142,6 +143,50 @@ const FORM_FIELDS: { field: keyof FormValues; type: string; placeholder: string;
   { field: "emergencyAddress", type: "text", placeholder: "e.g. 10 Oak Ave, Austin", wide: true },
 ];
 
+const QUESTIONS: Record<keyof FormValues, string> = {
+  firstName: "What is your first name?",
+  middleName: "What is your middle name? Say 'skip' if you don't have one.",
+  lastName: "What is your last name?",
+  dateOfBirth: "What is your date of birth?",
+  ssn: "For your safety, type your Social Security number in the review list instead of saying it out loud. Say 'skip' to continue.",
+  heightFeet: "How tall are you, in feet and inches?",
+  heightInches: "And how many inches on top of that?",
+  weight: "What is your weight in pounds?",
+  placeOfBirthCity: "Which city were you born in?",
+  placeOfBirthState: "And which state or country were you born in?",
+  fathersLastName: "What is your father's last name?",
+  mothersMaidenName: "What is your mother's maiden name?",
+  residenceAddress: "What is the street address where you live?",
+  city: "Which city do you live in?",
+  state: "Which state?",
+  zipCode: "What is your ZIP code?",
+  county: "Which county do you live in?",
+  phone: "What is your primary phone number?",
+  cellPhone: "What is your cell phone number?",
+  email: "What is your email address?",
+  emergencyName: "Who should we list as your emergency contact?",
+  emergencyPhone: "What is their phone number?",
+  emergencyAddress: "What is their address?",
+};
+
+/** Fields a browser or saved profile can autofill before the voice questions start. */
+const BASIC_FIELDS: { field: keyof FormValues; autoComplete: string; placeholder: string; wide?: boolean }[] = [
+  { field: "firstName", autoComplete: "given-name", placeholder: "Maria" },
+  { field: "middleName", autoComplete: "additional-name", placeholder: "Elena" },
+  { field: "lastName", autoComplete: "family-name", placeholder: "Lopez" },
+  { field: "dateOfBirth", autoComplete: "bday", placeholder: "01/05/1985" },
+  { field: "residenceAddress", autoComplete: "street-address", placeholder: "42 Elm Street", wide: true },
+  { field: "city", autoComplete: "address-level2", placeholder: "Austin" },
+  { field: "state", autoComplete: "address-level1", placeholder: "TX" },
+  { field: "zipCode", autoComplete: "postal-code", placeholder: "78701" },
+  { field: "phone", autoComplete: "tel", placeholder: "(555) 123-4567" },
+  { field: "email", autoComplete: "email", placeholder: "maria@example.com" },
+];
+
+const PROFILE_KEY = "formbuddy-profile";
+
+
+
 function Index() {
   const [values, setValues] = useState<FormValues>(EMPTY_FORM);
   const [status, setStatus] = useState(WELCOME_SCRIPT);
@@ -152,14 +197,42 @@ function Index() {
   const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [aiThinking, setAiThinking] = useState(false);
-  const [stage, setStage] = useState<"welcome" | "choose" | "filling">("welcome");
+  const [stage, setStage] = useState<"welcome" | "choose" | "basics" | "filling">("welcome");
+  const [guided, setGuided] = useState(true);
+  const [currentField, setCurrentField] = useState<keyof FormValues | null>(null);
+  const [hasProfile, setHasProfile] = useState(false);
   const lastFilledRef = useRef<(keyof FormValues)[]>([]);
+  const skippedRef = useRef<Set<keyof FormValues>>(new Set());
+  const currentFieldRef = useRef<keyof FormValues | null>(null);
+  const guidedRef = useRef(true);
+
+  /** Ask the next unanswered question out loud. */
+  const askNext = useCallback((vals: FormValues) => {
+    const next = FORM_FIELDS.find(
+      ({ field }) => !vals[field] && !skippedRef.current.has(field),
+    );
+    if (!next) {
+      currentFieldRef.current = null;
+      setCurrentField(null);
+      const done =
+        "That's everything I need. Review your answers below, then download the filled form.";
+      setStatus(done);
+      speak(done);
+      return;
+    }
+    currentFieldRef.current = next.field;
+    setCurrentField(next.field);
+    setStatus(QUESTIONS[next.field]);
+    speak(QUESTIONS[next.field]);
+  }, []);
 
   const handleTranscript = useCallback((text: string) => {
     const command = detectCommand(text);
     if (command === "repeat") {
-      speak(WELCOME_SCRIPT);
-      setStatus("Repeating the welcome message.");
+      const field = currentFieldRef.current;
+      const line = guidedRef.current && field ? QUESTIONS[field] : WELCOME_SCRIPT;
+      speak(line);
+      setStatus(line);
       return;
     }
     if (command === "documents") {
@@ -168,7 +241,7 @@ function Index() {
       return;
     }
     if (command === "why") {
-      const last = lastFilledRef.current[0];
+      const last = currentFieldRef.current ?? lastFilledRef.current[0];
       setStatus(
         last
           ? `${FIELD_LABELS[last]}: ${FIELD_HINTS[last]}`
@@ -186,13 +259,34 @@ function Index() {
       return;
     }
 
+    // "skip" / "next" moves past the current question in guided mode.
+    if (guidedRef.current && currentFieldRef.current && /^\s*(skip|pass|next)\b/i.test(text)) {
+      skippedRef.current.add(currentFieldRef.current);
+      askNext(values);
+      return;
+    }
+
     const parsed = parseTranscript(text);
     const keys = Object.keys(parsed) as (keyof FormValues)[];
-    if (keys.length > 0) {
-      setValues((current) => ({ ...current, ...parsed }));
-      setJustFilled(new Set(keys));
-      lastFilledRef.current = keys;
-      setStatus(`Filled ${keys.map((k) => FIELD_LABELS[k]).join(", ")}.`);
+    let merged: FormValues = { ...values, ...parsed };
+
+    // In guided mode, a bare answer belongs to the question just asked.
+    const current = currentFieldRef.current;
+    if (guidedRef.current && current && keys.length === 0) {
+      const bare = text.trim().replace(/[.!?]+$/, "");
+      if (bare && bare.split(/\s+/).length <= 6) {
+        merged = { ...merged, [current]: bare };
+      }
+    }
+
+    const filledNow = (Object.keys(merged) as (keyof FormValues)[]).filter(
+      (k) => merged[k] !== values[k],
+    );
+    if (filledNow.length > 0) {
+      setValues(merged);
+      setJustFilled(new Set(filledNow));
+      lastFilledRef.current = filledNow;
+      setStatus(`Filled ${filledNow.map((k) => FIELD_LABELS[k]).join(", ")}.`);
     } else {
       setStatus(`I heard: “${text}”. Letting AI take a look…`);
     }
@@ -202,10 +296,10 @@ function Index() {
     extractFields({ data: { transcript: text } })
       .then((result) => {
         const extra = Object.entries(result.values).filter(
-          ([field, value]) => value && !parsed[field as keyof FormValues],
+          ([field, value]) => value && !merged[field as keyof FormValues],
         ) as [keyof FormValues, string][];
         if (extra.length === 0) {
-          if (keys.length === 0) {
+          if (filledNow.length === 0) {
             setStatus(
               result.error ??
                 `I heard: “${text}”, but couldn't tell which field it belongs to.`,
@@ -214,22 +308,27 @@ function Index() {
           return;
         }
         const extraKeys = extra.map(([field]) => field);
-        setValues((current) => {
-          const next = { ...current };
-          for (const [field, value] of extra) next[field] = value;
-          return next;
-        });
-        setJustFilled(new Set([...keys, ...extraKeys]));
-        lastFilledRef.current = [...extraKeys, ...keys];
+        for (const [field, value] of extra) merged[field] = value;
+        setValues({ ...merged });
+        setJustFilled(new Set([...filledNow, ...extraKeys]));
+        lastFilledRef.current = [...extraKeys, ...filledNow];
         setStatus(
-          `Filled ${[...keys, ...extraKeys].map((k) => FIELD_LABELS[k]).join(", ")}.`,
+          `Filled ${[...filledNow, ...extraKeys].map((k) => FIELD_LABELS[k]).join(", ")}.`,
         );
       })
       .catch(() => {
-        if (keys.length === 0) setStatus(`I heard: “${text}”, but the AI couldn't be reached.`);
+        if (filledNow.length === 0)
+          setStatus(`I heard: “${text}”, but the AI couldn't be reached.`);
       })
-      .finally(() => setAiThinking(false));
-  }, [values]);
+      .finally(() => {
+        setAiThinking(false);
+        if (guidedRef.current) {
+          const field = currentFieldRef.current;
+          if (!field || merged[field]) askNext(merged);
+        }
+      });
+  }, [values, askNext]);
+
 
   const { supported, listening, interim, toggle } =
     useSpeechRecognition(handleTranscript);
@@ -237,11 +336,18 @@ function Index() {
   // Restore a saved draft on first load (client only).
   useEffect(() => {
     try {
+      setHasProfile(Boolean(localStorage.getItem(PROFILE_KEY)));
       const saved = localStorage.getItem(DRAFT_KEY);
       if (saved) {
-        setValues({ ...EMPTY_FORM, ...JSON.parse(saved) });
+        const restored = { ...EMPTY_FORM, ...JSON.parse(saved) } as FormValues;
+        setValues(restored);
         setStatus("Welcome back — your saved draft was restored.");
         setStage("filling");
+        const next = FORM_FIELDS.find(({ field }) => !restored[field]);
+        if (next) {
+          currentFieldRef.current = next.field;
+          setCurrentField(next.field);
+        }
       }
     } catch {
       // ignore malformed drafts
@@ -320,7 +426,11 @@ function Index() {
                     ? `“${INTRO_GREETING}”`
                     : stage === "choose"
                       ? `“${FORM_QUESTION}”`
-                      : `“${WELCOME_SCRIPT}”`}
+                      : stage === "basics"
+                        ? "“Let's start with your basic info. Fill it in or use your browser's autofill — I'll ask about the rest by voice.”"
+                        : guided && currentField
+                          ? `“${QUESTIONS[currentField]}”`
+                          : `“${WELCOME_SCRIPT}”`}
                 </p>
               </div>
             </div>
@@ -347,9 +457,11 @@ function Index() {
                       type="button"
                       disabled={!option.available}
                       onClick={() => {
-                        setStage("filling");
-                        setStatus(WELCOME_SCRIPT);
-                        speak(WELCOME_SCRIPT);
+                        setStage("basics");
+                        const line =
+                          "Let's start with your basic info. Fill it in or use your browser's autofill, then we'll continue by voice.";
+                        setStatus(line);
+                        speak(line);
                       }}
                       className={
                         "w-full rounded-lg border p-3 text-left transition-colors " +
@@ -366,9 +478,148 @@ function Index() {
               </ul>
             )}
 
+            {stage === "basics" && (
+              <div className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4">
+                <div className="flex items-center gap-2">
+                  <UserRound className="h-4 w-4 text-primary" aria-hidden="true" />
+                  <h3 className="text-sm font-semibold text-foreground">Your basic info</h3>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Autofill works here — your browser can complete these in one tap. Nothing sensitive is
+                  asked for.
+                </p>
+                <form
+                  className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+                  onSubmit={(e) => e.preventDefault()}
+                >
+                  {BASIC_FIELDS.map(({ field, autoComplete, placeholder, wide }) => (
+                    <div key={field} className={wide ? "sm:col-span-2" : undefined}>
+                      <label
+                        htmlFor={`basic-${field}`}
+                        className="mb-1 block text-xs font-medium text-foreground"
+                      >
+                        {FIELD_LABELS[field]}
+                      </label>
+                      <input
+                        id={`basic-${field}`}
+                        name={autoComplete}
+                        autoComplete={autoComplete}
+                        value={values[field]}
+                        placeholder={placeholder}
+                        onChange={(e) =>
+                          setValues((current) => ({ ...current, [field]: e.target.value }))
+                        }
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      />
+                    </div>
+                  ))}
+                </form>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStage("filling");
+                      askNext(values);
+                    }}
+                    className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+                  >
+                    Continue by voice
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try {
+                        const basics: Record<string, string> = {};
+                        for (const { field } of BASIC_FIELDS) basics[field] = values[field];
+                        localStorage.setItem(PROFILE_KEY, JSON.stringify(basics));
+                        setHasProfile(true);
+                        setStatus("Your basic info is saved on this device for next time.");
+                      } catch {
+                        setStatus("Couldn't save your info in this browser.");
+                      }
+                    }}
+                    className="rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+                  >
+                    Save my info
+                  </button>
+                  {hasProfile && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        try {
+                          const saved = JSON.parse(localStorage.getItem(PROFILE_KEY) ?? "{}");
+                          setValues((current) => ({ ...current, ...saved }));
+                          setStatus("Filled in your saved basic info.");
+                        } catch {
+                          setStatus("Couldn't read your saved info.");
+                        }
+                      }}
+                      className="rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+                    >
+                      Use saved info
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStage("filling");
+                      setStatus(WELCOME_SCRIPT);
+                      speak(WELCOME_SCRIPT);
+                    }}
+                    className="rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+                  >
+                    Skip this
+                  </button>
+                </div>
+              </div>
+            )}
+
+
             {stage === "filling" && (
               <>
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2">
+              <span className="text-sm text-foreground">
+                {guided
+                  ? currentField
+                    ? `Question: ${FIELD_LABELS[currentField]}`
+                    : "Guided questions"
+                  : "Free speech — say anything, in any order"}
+              </span>
+              <div className="flex gap-2">
+                {guided && currentField && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      skippedRef.current.add(currentField);
+                      askNext(values);
+                    }}
+                    className="rounded-full border border-border bg-background px-3 py-1 text-xs text-foreground transition-colors hover:bg-accent"
+                  >
+                    Skip
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !guided;
+                    guidedRef.current = next;
+                    setGuided(next);
+                    if (next) askNext(values);
+                    else {
+                      currentFieldRef.current = null;
+                      setCurrentField(null);
+                      setStatus("Free speech mode — tell me anything and I'll place it.");
+                    }
+                  }}
+                  className="rounded-full border border-border bg-background px-3 py-1 text-xs text-foreground transition-colors hover:bg-accent"
+                >
+                  {guided ? "Switch to free speech" : "Switch to guided questions"}
+                </button>
+              </div>
+            </div>
+
             <div className="flex flex-col items-center gap-3 py-2">
+
               <button
                 type="button"
                 onClick={toggle}
