@@ -89,7 +89,7 @@ function Index() {
   const [status, setStatus] = useState(WELCOME_SCRIPT);
   const [justFilled, setJustFilled] = useState<Set<keyof FormValues>>(new Set());
   const [showDocuments, setShowDocuments] = useState(false);
-  const lastFilledRef = useRef<keyof FormValues[]>([]);
+  const lastFilledRef = useRef<(keyof FormValues)[]>([]);
 
   const handleTranscript = useCallback((text: string) => {
     const command = detectCommand(text);
