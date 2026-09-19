@@ -50,6 +50,29 @@ export const Route = createFileRoute("/")({
 const WELCOME_SCRIPT =
   "Welcome to FormBuddy. We'll complete the Utility Assistance application together. There are six steps. You can say 'repeat,' 'why do they need this,' 'save for later,' or 'what documents do I need?'";
 
+const INTRO_GREETING =
+  "Hi, I'm FormBuddy. I help you finish government forms by voice, one question at a time.";
+
+const FORM_QUESTION = "Which form would you like to work on today?";
+
+const FORM_OPTIONS: { label: string; note: string; available: boolean }[] = [
+  {
+    label: "Texas Driver License / ID Card — Form DL-14A",
+    note: "Texas DPS · ready to fill",
+    available: true,
+  },
+  {
+    label: "Utility Assistance application",
+    note: "Coming soon",
+    available: false,
+  },
+  {
+    label: "Upload my own form",
+    note: "Coming soon",
+    available: false,
+  },
+];
+
 const VOICE_COMMANDS = [
   "repeat",
   "why do they need this",
@@ -129,6 +152,7 @@ function Index() {
   const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [aiThinking, setAiThinking] = useState(false);
+  const [stage, setStage] = useState<"welcome" | "choose" | "filling">("welcome");
   const lastFilledRef = useRef<(keyof FormValues)[]>([]);
 
   const handleTranscript = useCallback((text: string) => {
@@ -217,6 +241,7 @@ function Index() {
       if (saved) {
         setValues({ ...EMPTY_FORM, ...JSON.parse(saved) });
         setStatus("Welcome back — your saved draft was restored.");
+        setStage("filling");
       }
     } catch {
       // ignore malformed drafts
@@ -291,11 +316,58 @@ function Index() {
                   aria-hidden="true"
                 />
                 <p className="text-sm leading-relaxed text-foreground">
-                  “{WELCOME_SCRIPT}”
+                  {stage === "welcome"
+                    ? `“${INTRO_GREETING}”`
+                    : stage === "choose"
+                      ? `“${FORM_QUESTION}”`
+                      : `“${WELCOME_SCRIPT}”`}
                 </p>
               </div>
             </div>
 
+            {stage === "welcome" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setStage("choose");
+                  setStatus(FORM_QUESTION);
+                  speak(`${INTRO_GREETING} ${FORM_QUESTION}`);
+                }}
+                className="rounded-md bg-primary px-4 py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+              >
+                Let's begin
+              </button>
+            )}
+
+            {stage === "choose" && (
+              <ul className="flex flex-col gap-2">
+                {FORM_OPTIONS.map((option) => (
+                  <li key={option.label}>
+                    <button
+                      type="button"
+                      disabled={!option.available}
+                      onClick={() => {
+                        setStage("filling");
+                        setStatus(WELCOME_SCRIPT);
+                        speak(WELCOME_SCRIPT);
+                      }}
+                      className={
+                        "w-full rounded-lg border p-3 text-left transition-colors " +
+                        (option.available
+                          ? "border-border bg-background text-foreground hover:bg-accent"
+                          : "cursor-not-allowed border-border bg-muted text-muted-foreground opacity-70")
+                      }
+                    >
+                      <span className="block text-sm font-medium">{option.label}</span>
+                      <span className="block text-xs text-muted-foreground">{option.note}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {stage === "filling" && (
+              <>
             <div className="flex flex-col items-center gap-3 py-2">
               <button
                 type="button"
@@ -344,6 +416,9 @@ function Index() {
                 </button>
               ))}
             </div>
+              </>
+            )}
+
 
             {showDocuments && (
               <div className="rounded-lg border border-border bg-background p-4">
