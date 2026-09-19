@@ -339,9 +339,15 @@ function Index() {
       setHasProfile(Boolean(localStorage.getItem(PROFILE_KEY)));
       const saved = localStorage.getItem(DRAFT_KEY);
       if (saved) {
-        setValues({ ...EMPTY_FORM, ...JSON.parse(saved) });
+        const restored = { ...EMPTY_FORM, ...JSON.parse(saved) } as FormValues;
+        setValues(restored);
         setStatus("Welcome back — your saved draft was restored.");
         setStage("filling");
+        const next = FORM_FIELDS.find(({ field }) => !restored[field]);
+        if (next) {
+          currentFieldRef.current = next.field;
+          setCurrentField(next.field);
+        }
       }
     } catch {
       // ignore malformed drafts
