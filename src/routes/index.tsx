@@ -388,6 +388,65 @@ function Index() {
               {agentReasoning}
             </div>
 
+            {/* About you — fill the basics once, then the agent only asks what's missing */}
+            {!profileDone && (
+              <form
+                onSubmit={handleProfileSubmit}
+                aria-label="About you"
+                className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-3"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-foreground">About you</p>
+                  <p className="text-xs text-muted-foreground">
+                    Fill these in once (your browser can autofill them). The agent will then only
+                    ask about what's still missing.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  {PROFILE_FIELDS.map((field) => (
+                    <div key={field.key} className="flex flex-col gap-1">
+                      <label
+                        htmlFor={`profile-${field.key}`}
+                        className="text-[11px] font-medium text-muted-foreground"
+                      >
+                        {field.label}
+                      </label>
+                      <input
+                        id={`profile-${field.key}`}
+                        name={field.key}
+                        autoComplete={field.autoComplete}
+                        placeholder={field.placeholder}
+                        value={profile[field.key] ?? ""}
+                        onChange={(event) =>
+                          setProfile((prev) => ({ ...prev, [field.key]: event.target.value }))
+                        }
+                        className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="submit"
+                    className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                  >
+                    <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                    Use these details & start
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setProfileDone(true)}
+                    className="rounded-md border border-input bg-background px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+                  >
+                    Skip — just ask me
+                  </button>
+                </div>
+              </form>
+            )}
+
+
             {/* Microphone Button */}
             <div className="flex flex-col items-center gap-2 py-1">
               <button
