@@ -100,6 +100,8 @@ function Index() {
   const [flattenPdf, setFlattenPdf] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [viewMode, setViewMode] = useState<"form" | "pdf">("pdf");
+  const [aiThinking, setAiThinking] = useState(false);
+
 
   // Refresh PDF when values or flatten toggle changes
   const updatePdf = useCallback(async (values: DmvFormValues, flatten: boolean) => {
