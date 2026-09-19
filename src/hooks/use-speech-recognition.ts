@@ -1,3 +1,4 @@
+import { createParser } from "eventsource-parser";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type SpeechRecognitionLike = {
@@ -89,10 +90,88 @@ export function useSpeechRecognition(onFinalTranscript: (text: string) => void) 
   return { supported, listening, interim, toggle };
 }
 
-export function speak(text: string) {
+function speakWithBrowserVoice(text: string) {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.rate = 0.95;
   window.speechSynthesis.speak(utterance);
+}
+
+let sharedAudioCtx: AudioContext | null = null;
+
+/**
+ * Speaks with a natural AI voice (streamed from our /api/tts route).
+ * Falls back to the browser's built-in voice if the AI voice is unavailable.
+ */
+export function speak(text: string) {
+  if (typeof window === "undefined") return;
+  window.speechSynthesis?.cancel();
+
+  void (async () => {
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok || !res.body) throw new Error(`TTS failed: ${res.status}`);
+
+      sharedAudioCtx ??= new AudioContext({ sampleRate: 24000 });
+      const ctx = sharedAudioCtx;
+      if (ctx.state === "suspended") await ctx.resume().catch(() => {});
+
+      let playhead = 0;
+      let pending = new Uint8Array(0);
+
+      const playChunk = (incoming: Uint8Array) => {
+        const bytes = new Uint8Array(pending.length + incoming.length);
+        bytes.set(pending);
+        bytes.set(incoming, pending.length);
+        const usable = bytes.length - (bytes.length % 2);
+        pending = bytes.slice(usable);
+        if (usable === 0) return;
+        const samples = new Int16Array(bytes.buffer, 0, usable / 2);
+        const floats = Float32Array.from(samples, (s) => s / 32768);
+        const buffer = ctx.createBuffer(1, floats.length, 24000);
+        buffer.copyToChannel(floats, 0);
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        if (playhead === 0) {
+          playhead = ctx.currentTime + 0.05;
+        } else {
+          playhead = Math.max(playhead, ctx.currentTime);
+        }
+        source.start(playhead);
+        playhead += buffer.duration;
+      };
+
+      const parser = createParser({
+        onEvent(event) {
+          let payload: { type?: string; audio?: string };
+          try {
+            payload = JSON.parse(event.data);
+          } catch {
+            return;
+          }
+          if (payload.type !== "speech.audio.delta" || !payload.audio) return;
+          const binary = atob(payload.audio);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          playChunk(bytes);
+        },
+      });
+
+      const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        parser.feed(value);
+      }
+    } catch {
+      // AI voice unavailable — fall back to the browser's built-in voice.
+      speakWithBrowserVoice(text);
+    }
+  })();
 }

@@ -1,8 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
+  Accessibility,
+  BookOpen,
   Brain,
   Check,
   CircleStop,
+  ClipboardCheck,
   Download,
   Eye,
   FileCheck,
@@ -11,6 +14,7 @@ import {
   MicOff,
   MessageCircle,
   RefreshCw,
+  ShieldCheck,
   Sparkles,
   Volume2,
 } from "lucide-react";
@@ -200,6 +204,12 @@ function Index() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <Link
+              to="/architecture"
+              className="rounded-md border border-input bg-background px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+            >
+              Architecture
+            </Link>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
               <FileCheck className="h-3.5 w-3.5" />
               PaddleOCR Schema: 29 Keys
@@ -618,6 +628,77 @@ function Index() {
             )}
           </section>
         </div>
+
+        {/* Why FormBuddy — judge-friendly story section */}
+        <section aria-label="Why FormBuddy" className="mt-10 flex flex-col gap-4">
+          <h2 className="text-xl font-bold tracking-tight text-foreground">
+            Why FormBuddy? Meet Jordan
+          </h2>
+          <p className="max-w-3xl text-sm text-muted-foreground">
+            Jordan is a blind/low-vision resident applying for utility assistance. His story shows
+            the gap FormBuddy fills.
+          </p>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <article className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 shadow-sm">
+              <div className="flex items-center gap-2">
+                <Accessibility className="h-5 w-5 text-primary" aria-hidden="true" />
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  Jordan&rsquo;s problem
+                </h3>
+              </div>
+              <p className="text-sm leading-relaxed text-foreground">
+                Jordan can use a screen reader and tools that read documents aloud. But a long
+                utility-assistance form is still hard to finish independently: requirements are
+                scattered, language is confusing, he can lose track of progress, and he may not know
+                which documents are still missing.
+              </p>
+            </article>
+
+            <article className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 shadow-sm">
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-primary" aria-hidden="true" />
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  What exists today
+                </h3>
+              </div>
+              <p className="text-sm leading-relaxed text-foreground">
+                Screen readers, Seeing AI, and Be My AI can read or describe a page. Caseworkers can
+                help complete forms. But reading a form is not the same as preparing a complete
+                application.
+              </p>
+              <p className="mt-auto text-xs italic leading-relaxed text-muted-foreground">
+                FormBuddy does not replace these tools or a caseworker.
+              </p>
+            </article>
+
+            <article className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 shadow-sm">
+              <div className="flex items-center gap-2">
+                <ClipboardCheck className="h-5 w-5 text-primary" aria-hidden="true" />
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  What FormBuddy does
+                </h3>
+              </div>
+              <p className="text-sm leading-relaxed text-foreground">
+                FormBuddy creates a voice-first completion plan: it turns the form into one clear
+                question at a time, remembers answers and missing documents, requires confirmation
+                for important answers, protects sensitive fields, and creates a reviewable answer
+                packet.
+              </p>
+            </article>
+          </div>
+
+          <p className="rounded-lg border border-primary bg-accent px-4 py-3 text-sm font-semibold text-primary">
+            Other tools help Jordan read the form. FormBuddy helps Jordan finish preparing it.
+          </p>
+
+          <p className="flex items-start gap-2 rounded-lg border border-border bg-background px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+            FormBuddy never captures or speaks SSNs, bank details, card numbers, routing numbers, or
+            passwords. Jordan reviews all answers before export and submits through the official
+            channel.
+          </p>
+        </section>
       </main>
     </div>
   );

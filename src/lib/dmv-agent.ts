@@ -170,8 +170,9 @@ export class DmvVoiceAgent {
     // Name Extraction (only if not already captured)
     if (!this.values.firstName || !this.values.lastName) {
       const nameMatch =
-        text.match(/(?:my\s+)?(?:full\s+)?name\s+is\s+([A-Za-z\s]+?)(?:[,.]|\s+(?:born|and|i|my|dob)\b|$)/i) ||
-        text.match(/\bi\s+am\s+(?!a\b|an\b|not\b|applying\b)([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/);
+        text.match(
+          /(?:my\s+)?(?:full\s+)?name\s+is\s+([A-Za-z\s]+?)(?:[,.]|\s+(?:born|and|i|my|dob)\b|$)/i,
+        ) || text.match(/\bi\s+am\s+(?!a\b|an\b|not\b|applying\b)([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/);
       if (nameMatch) {
         const parts = nameMatch[1]!.trim().split(/\s+/).filter(Boolean);
         if (parts.length >= 2 && !/\b(?:citizen|veteran|donor|license)\b/i.test(nameMatch[1]!)) {

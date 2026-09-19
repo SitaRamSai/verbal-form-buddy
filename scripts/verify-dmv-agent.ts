@@ -70,7 +70,7 @@ async function verifyDmvAutonomousAgent() {
   const textAssertions: Record<string, string> = {
     firstName: "Carlos",
     lastName: "Rodriguez",
-    dateOfBirth: "January 15, 1982",
+    dateOfBirth: "01/15/1982",
     heightFt: "5",
     heightIn: "10",
     weightLbs: "180",
