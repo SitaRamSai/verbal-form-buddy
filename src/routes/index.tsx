@@ -17,6 +17,8 @@ import {
   type FormValues,
 } from "@/lib/form-parser";
 import { speak, useSpeechRecognition } from "@/hooks/use-speech-recognition";
+import { fillPdf, pdfBlobUrl } from "@/lib/pdf-form";
+import { PdfPreview } from "@/components/pdf-preview";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -89,6 +91,10 @@ function Index() {
   const [status, setStatus] = useState(WELCOME_SCRIPT);
   const [justFilled, setJustFilled] = useState<Set<keyof FormValues>>(new Set());
   const [showDocuments, setShowDocuments] = useState(false);
+  const [showReview, setShowReview] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null);
+  const [pdfError, setPdfError] = useState<string | null>(null);
   const lastFilledRef = useRef<(keyof FormValues)[]>([]);
 
   const handleTranscript = useCallback((text: string) => {
@@ -149,6 +155,30 @@ function Index() {
       // ignore malformed drafts
     }
   }, []);
+
+  // Re-fill the real PDF whenever the collected values change.
+  useEffect(() => {
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      Promise.all([fillPdf(values, { flatten: true }), fillPdf(values)])
+        .then(([flat, editable]) => {
+          if (cancelled) return;
+          setPdfError(null);
+          setPdfBytes(flat);
+          setPdfUrl((previous) => {
+            if (previous) URL.revokeObjectURL(previous);
+            return pdfBlobUrl(editable);
+          });
+        })
+        .catch(() => {
+          if (!cancelled) setPdfError("Couldn't open the application PDF.");
+        });
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [values]);
 
   const filledCount = FORM_FIELDS.filter(({ field }) => values[field]).length;
 
@@ -259,60 +289,51 @@ function Index() {
             </p>
           </section>
 
-          {/* Right: form panel */}
+          {/* Right: the real PDF form */}
           <section
             aria-label="Application form"
-            className="flex flex-col gap-6 rounded-xl border border-border bg-card p-6 shadow-sm"
+            className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6 shadow-sm"
           >
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground">
-                Utility Assistance application
-              </h2>
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">
+                  Utility Assistance Application
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Official Form UA-6 (PDF) — filled live as you speak
+                </p>
+              </div>
               <span className="text-sm text-muted-foreground">
                 {filledCount}/{FORM_FIELDS.length} filled
               </span>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {FORM_FIELDS.map(({ field, type, placeholder, wide }) => (
-                <div key={field} className={wide ? "sm:col-span-2" : undefined}>
-                  <label
-                    htmlFor={`field-${field}`}
-                    className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-foreground"
-                  >
-                    {FIELD_LABELS[field]}
-                    {justFilled.has(field) && values[field] && (
-                      <Check className="h-4 w-4 text-primary" aria-hidden="true" />
-                    )}
-                  </label>
-                  <input
-                    id={`field-${field}`}
-                    type={type}
-                    value={values[field]}
-                    onChange={(e) => {
-                      setValues((current) => ({
-                        ...current,
-                        [field]: e.target.value,
-                      }));
-                      setJustFilled((current) => {
-                        const next = new Set(current);
-                        next.delete(field);
-                        return next;
-                      });
-                    }}
-                    placeholder={placeholder}
-                    className={
-                      "w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
-                      (justFilled.has(field) && values[field]
-                        ? "border-primary ring-1 ring-primary"
-                        : "")
-                    }
-                  />
+            <div className="max-h-[760px] overflow-auto rounded-lg border border-border bg-muted p-3">
+              {pdfError ? (
+                <p className="p-6 text-sm text-muted-foreground">{pdfError}</p>
+              ) : (
+                <div className="shadow-sm">
+                  <PdfPreview bytes={pdfBytes} />
                 </div>
-              ))}
+              )}
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <a
+                href={pdfUrl ?? "#"}
+                download="utility-assistance-application.pdf"
+                aria-disabled={!pdfUrl}
+                className="rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+              >
+                Download filled PDF
+              </a>
+              <button
+                type="button"
+                onClick={() => setShowReview((v) => !v)}
+                className="rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+              >
+                {showReview ? "Hide corrections" : "Review & correct"}
+              </button>
               <button
                 type="button"
                 onClick={() => {
@@ -339,6 +360,47 @@ function Index() {
                 Clear
               </button>
             </div>
+
+            {showReview && (
+              <div className="grid grid-cols-1 gap-4 rounded-lg border border-border bg-background p-4 sm:grid-cols-2">
+                {FORM_FIELDS.map(({ field, type, placeholder, wide }) => (
+                  <div key={field} className={wide ? "sm:col-span-2" : undefined}>
+                    <label
+                      htmlFor={`field-${field}`}
+                      className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-foreground"
+                    >
+                      {FIELD_LABELS[field]}
+                      {justFilled.has(field) && values[field] && (
+                        <Check className="h-4 w-4 text-primary" aria-hidden="true" />
+                      )}
+                    </label>
+                    <input
+                      id={`field-${field}`}
+                      type={type}
+                      value={values[field]}
+                      onChange={(e) => {
+                        setValues((current) => ({
+                          ...current,
+                          [field]: e.target.value,
+                        }));
+                        setJustFilled((current) => {
+                          const next = new Set(current);
+                          next.delete(field);
+                          return next;
+                        });
+                      }}
+                      placeholder={placeholder}
+                      className={
+                        "w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
+                        (justFilled.has(field) && values[field]
+                          ? "border-primary ring-1 ring-primary"
+                          : "")
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
         </div>
       </main>
