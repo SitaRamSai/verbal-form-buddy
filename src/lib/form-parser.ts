@@ -45,17 +45,33 @@ const SMALL: Record<string, number> = {
   eighteen: 18, nineteen: 19, twenty: 20, thirty: 30, forty: 40,
   fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90,
   hundred: 100,
+};
+
+// Ordinals are replaced with digits before number-word parsing so a spoken
+// day ("fifth") never merges into the year ("nineteen eighty five" -> 1985).
+const ORDINALS: Record<string, number> = {
   first: 1, second: 2, third: 3, fourth: 4, fifth: 5, sixth: 6,
   seventh: 7, eighth: 8, ninth: 9, tenth: 10, eleventh: 11,
   twelfth: 12, thirteenth: 13, fourteenth: 14, fifteenth: 15,
   sixteenth: 16, seventeenth: 17, eighteenth: 18, nineteenth: 19,
   twentieth: 20, thirtieth: 30,
+  "twenty first": 21, "twenty second": 22, "twenty third": 23,
+  "twenty fourth": 24, "twenty fifth": 25, "twenty sixth": 26,
+  "twenty seventh": 27, "twenty eighth": 28, "twenty ninth": 29,
+  "thirty first": 31,
 };
 
 // "five five five one two" -> "55512"; "twenty five" -> "25";
 // "nineteen eighty five" -> "1985"; "twelve hundred" -> "1200".
-export function normalizeNumberWords(text: string): string {
-  const tokens = text.toLowerCase().replace(/-/g, " ").split(/\s+/);
+export function normalizeNumberWords(input: string): string {
+  let prepared = ` ${input.toLowerCase().replace(/-/g, " ")} `;
+  for (const phrase of Object.keys(ORDINALS).sort((a, b) => b.length - a.length)) {
+    prepared = prepared.replace(
+      new RegExp(`\\b${phrase}\\b`, "g"),
+      ` ${ORDINALS[phrase]} `
+    );
+  }
+  const tokens = prepared.trim().split(/\s+/);
   const out: string[] = [];
   let run: number[] = [];
 
