@@ -1,11 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  Accessibility,
+  BookOpen,
   Check,
   CircleStop,
+  ClipboardCheck,
   FileText,
   Mic,
   MicOff,
   MessageCircle,
+  ShieldCheck,
   Volume2,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
