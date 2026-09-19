@@ -322,10 +322,21 @@ function Index() {
       })
       .finally(() => {
         setAiThinking(false);
-        if (guidedRef.current) {
-          const field = currentFieldRef.current;
-          if (!field || merged[field]) askNext(merged);
+        if (!guidedRef.current) return;
+        const field = currentFieldRef.current;
+        if (!field) {
+          // No question was active — start (or resume) the guided flow.
+          askNext(merged);
+          return;
         }
+        if (merged[field]) {
+          askNext(merged);
+          return;
+        }
+        // Still empty: say so out loud and ask the same question again.
+        const retry = `Sorry, I didn't catch that. ${QUESTIONS[field]}`;
+        setStatus(retry);
+        speak(retry);
       });
   }, [values, askNext]);
 
