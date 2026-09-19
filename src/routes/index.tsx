@@ -185,7 +185,9 @@ function Index() {
 
   return (
     <div className="min-h-screen bg-background px-4 py-6 lg:px-8">
-      <main className="mx-auto w-full max-w-7xl">
+      <ScrollStory appAnchorId="formbuddy-app" />
+      <main id="formbuddy-app" className="mx-auto w-full max-w-7xl scroll-mt-4">
+
         {/* Header */}
         <header className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
