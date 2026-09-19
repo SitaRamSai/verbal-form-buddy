@@ -95,8 +95,8 @@ export function normalizeNumberWords(input: string): string {
 
   for (const raw of tokens) {
     const token = raw.replace(/[^a-z0-9]/g, "");
-    if (token in SMALL) {
-      run.push(SMALL[token]);
+    if (token in SMALL && typeof SMALL[token] === "number") {
+      run.push(SMALL[token]!);
     } else if (/^\d+$/.test(token)) {
       flushRun();
       out.push(token);
