@@ -132,6 +132,63 @@ const AGENT_STEPS = [
   },
 ];
 
+/** What the prototype actually runs today, as opposed to the target design above. */
+const BUILT_PIPELINE = [
+  { label: "Microphone", detail: "Browser Web Speech API (Chrome / Edge)", icon: Mic },
+  { label: "Raw transcript", detail: "One undivided stream, no speaker labels", icon: ClipboardList },
+  { label: "Rule pass", detail: "src/lib/form-parser.ts — instant pattern matches", icon: Braces },
+  {
+    label: "Plausibility guard",
+    detail: "isPlausibleAnswer() rejects filler, questions and wrong-shaped answers",
+    icon: ShieldCheck,
+  },
+  {
+    label: "Gemini Flash",
+    detail: "google/gemini-3.8-flash via Lovable AI, told which question was asked",
+    icon: Brain,
+  },
+  { label: "Field values", detail: "22 DL-14A fields, empty rather than guessed", icon: CheckCircle2 },
+  { label: "PDF mapper", detail: "src/lib/pdf-form.ts writes the real AcroForm boxes", icon: Braces },
+  { label: "Review & download", detail: "Editable list, then the filled DL-14A PDF", icon: FileDown },
+];
+
+const ASSUMPTIONS = [
+  {
+    title: "One form, hardwired",
+    body: "The prototype only fills the Texas DL-14A. Field names and PDF boxes are mapped by hand, so no form discovery or OCR runs at request time.",
+  },
+  {
+    title: "Speech-to-text is the browser's",
+    body: "Recognition runs in Chrome or Edge via the Web Speech API. Accuracy depends on the user's microphone and accent, and Gemini only sees text that has already been transcribed — it cannot recover a word the browser misheard.",
+  },
+  {
+    title: "No speaker diarization",
+    body: "The audio stream carries no speaker labels, so a caseworker speaking in the room is transcribed the same as the applicant. Separating speakers would need a server-side engine such as Google Speech-to-Text or ElevenLabs Scribe.",
+  },
+  {
+    title: "The model suggests, it never decides",
+    body: "Gemini returns values only for fields clearly stated and null for everything else. Anything filler-like, question-like or wrong-shaped for the field is discarded before it reaches the form.",
+  },
+  {
+    title: "Nothing sensitive is spoken",
+    body: "The Social Security number is never asked for out loud; it is typed in the review list. No SSNs, bank, card or routing numbers are captured by voice.",
+  },
+  {
+    title: "No accounts, no server storage",
+    body: "Drafts live in the browser's local storage on that device only. There is no database, no login and no submission — the user downloads the filled PDF and files it through the official channel.",
+  },
+  {
+    title: "Text-to-speech can fall back",
+    body: "Replies are spoken with a Gemini voice streamed from the server; if that is unavailable it quietly falls back to the browser's built-in voice.",
+  },
+  {
+    title: "Not legal or eligibility advice",
+    body: "FormBuddy explains what a field asks for. It does not determine eligibility, complete a submission, or replace a caseworker.",
+  },
+];
+
+
+
 function FlowNode({
   label,
   Icon,
