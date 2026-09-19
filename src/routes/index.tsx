@@ -171,9 +171,13 @@ const FORM_FIELDS: { field: keyof FormValues; type: string; placeholder: string;
   { field: "emergencyAddress", type: "text", placeholder: "e.g. 10 Oak Ave, Austin", wide: true },
 ];
 
+type Stage = "welcome" | "choosing" | "filling";
+
 function Index() {
   const [values, setValues] = useState<FormValues>(EMPTY_FORM);
-  const [status, setStatus] = useState(WELCOME_SCRIPT);
+  const [stage, setStage] = useState<Stage>("welcome");
+  const [skipped, setSkipped] = useState<Set<keyof FormValues>>(new Set());
+  const [status, setStatus] = useState(GREETING);
   const [justFilled, setJustFilled] = useState<Set<keyof FormValues>>(new Set());
   const [showDocuments, setShowDocuments] = useState(false);
   const [showReview, setShowReview] = useState(false);
